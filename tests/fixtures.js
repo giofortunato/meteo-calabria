@@ -43,15 +43,28 @@ function marine(opt) {
   return { utc_offset_seconds: OFFSET, hourly: h };
 }
 
+// Indice UV massimo per giorno: opt.uv[giorno], 3 se non indicato.
+function uv(opt) {
+  const start = Math.floor((Date.now() + OFFSET * 1000) / 864e5) * 864e5;
+  const time = [...Array(7)].map((_, d) => new Date(start + d * 864e5).toISOString().slice(0, 10));
+  return { utc_offset_seconds: OFFSET, daily: { time, uv_index_max: time.map((_, d) => (opt.uv || {})[d] ?? 3) } };
+}
+
 exports.test = base.test.extend({
-  // api.opt: opzioni di previsione e mare; api.forecastDown / geocodeDown / marineDown: rete assente per quel servizio
+  // api.opt: opzioni di previsione, mare e UV; api.forecastDown / geocodeDown / marineDown / uvDown: rete assente per quel servizio
   api: async ({ context }, use) => {
-    const api = { opt: {}, places: [], forecastDown: false, geocodeDown: false, marineDown: false,
-                  forecastCalls: 0, geocodeCalls: [], marineCalls: [] };
+    const api = { opt: {}, places: [], forecastDown: false, geocodeDown: false, marineDown: false, uvDown: false,
+                  forecastCalls: 0, uvCalls: 0, geocodeCalls: [], marineCalls: [] };
     await context.route("https://api.open-meteo.com/**", route => {
+      const url = route.request().url();
+      if (new URL(url).searchParams.has("daily")) { // indice UV: richiesta a parte, senza modelli
+        api.uvCalls++;
+        if (api.forecastDown || api.uvDown) return route.abort();
+        return route.fulfill({ json: uv(api.opt) });
+      }
       if (api.forecastDown) return route.abort();
       api.forecastCalls++;
-      return route.fulfill({ json: forecast(route.request().url(), api.opt) });
+      return route.fulfill({ json: forecast(url, api.opt) });
     });
     await context.route("https://marine-api.open-meteo.com/**", route => {
       const u = new URL(route.request().url());

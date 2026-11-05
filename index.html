@@ -95,6 +95,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .now .big .t{font-family:var(--display);font-size:72px;line-height:.9;font-weight:600}
 .now .big .cond{font-size:18px;font-weight:600}
 .now .big .range{color:var(--muted);font-size:14px}
+.sun{display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:14px;color:var(--muted);margin:0}
+.sun span{display:inline-flex;align-items:center;gap:5px}
+.sun svg{width:18px;height:18px;color:var(--warm);flex:none}
+.sun b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.sun .uv-basso{color:var(--good)} .sun .uv-moderato{color:var(--mid)} .sun .uv-alto{color:var(--warm)} .sun .uv-molto-alto,.sun .uv-estremo{color:var(--bad)}
 .facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;align-content:center}
 .facts > div{display:flex;flex-direction:column;gap:4px;background:var(--bg);border-radius:10px;padding:10px 14px;min-width:0}
 .facts .v{font-size:18px;font-weight:600}
@@ -261,6 +266,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
         <div class="range" id="nrange"></div>
       </div>
     </div>
+    <p class="sun" id="nsun"></p>
     </div>
     <div class="facts">
       <div><span class="label">Pioggia, 6 ore</span><span class="v num" id="nrain">–</span></div>
@@ -296,6 +302,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   <section class="panel" id="detail">
     <h2 id="dtitle">Dettaglio ora per ora</h2>
     <p class="sub" id="dsub"></p>
+    <p class="sun" id="dsun"></p>
     <div class="legend" id="legend"></div>
     <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" tabindex="0" role="slider" aria-label="Ora del grafico di temperatura e pioggia" aria-describedby="khint"></svg></div>
     <div class="readout" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
@@ -415,6 +422,47 @@ function nearest(lat, lon){
   return best;
 }
 const provShort = p => (p||"").replace(/^(provincia|città metropolitana) di /i, "");
+
+/* sole: alba e tramonto calcolati qui (equazione dell'alba, scarto sotto il minuto), così valgono anche offline */
+function sunTimes(date, lat, lon){
+  const rad = Math.PI/180, J = Date.parse(date+"T12:00:00Z")/864e5 + 2440587.5;
+  const Js = Math.round(J - 2451545 + 0.0008) - lon/360;
+  const M = (357.5291 + 0.98560028*Js) % 360;
+  const C = 1.9148*Math.sin(M*rad) + 0.02*Math.sin(2*M*rad) + 0.0003*Math.sin(3*M*rad);
+  const L = (M + C + 282.9372) % 360;
+  const Jt = 2451545 + Js + 0.0053*Math.sin(M*rad) - 0.0069*Math.sin(2*L*rad);
+  const dec = Math.asin(Math.sin(L*rad)*Math.sin(23.4397*rad));
+  const cw = (Math.sin(-0.833*rad) - Math.sin(lat*rad)*Math.sin(dec)) / (Math.cos(lat*rad)*Math.cos(dec));
+  if(cw < -1 || cw > 1) return null;
+  const w = Math.acos(cw)/rad/360, at = j => new Date((j - 2440587.5)*864e5);
+  return {rise: at(Jt - w), set: at(Jt + w)};
+}
+const ROME = new Intl.DateTimeFormat("it-IT", {timeZone:"Europe/Rome", hour:"2-digit", minute:"2-digit", hourCycle:"h23"});
+const hm = dt => ROME.format(dt);
+function lightText(st){ const m = Math.round((st.set - st.rise)/6e4); return Math.floor(m/60)+" h "+(m%60)+" min di luce"; }
+// indice UV: categorie dell'OMS
+function uvCat(u){ return u < 3 ? "basso" : u < 6 ? "moderato" : u < 8 ? "alto" : u < 11 ? "molto alto" : "estremo"; }
+function uvURL(p){
+  return "https://api.open-meteo.com/v1/forecast?latitude="+p.lat.toFixed(4)+"&longitude="+p.lon.toFixed(4)+"&daily=uv_index_max&forecast_days=7&timezone=Europe%2FRome";
+}
+function buildUV(j){
+  const d = j && j.daily; if(!d || !d.time || !d.uv_index_max) return null;
+  const m = new Map(); d.time.forEach((t,i) => { const v = d.uv_index_max[i]; if(v != null && !Number.isNaN(v)) m.set(t, v); });
+  return m.size ? m : null;
+}
+const SUNUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18a6 6 0 0 1 12 0M3 18h18M12 3v5M9.5 5.5 12 3l2.5 2.5M5 12l1.4 1.4M19 12l-1.4 1.4"/></g></svg>';
+const SUNDOWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18a6 6 0 0 1 12 0M3 18h18M12 3v5M9.5 5.5 12 8l2.5-2.5M5 12l1.4 1.4M19 12l-1.4 1.4"/></g></svg>';
+// riga sole: alba, tramonto, (ore di luce), UV massimo del giorno
+function sunHTML(date, light){
+  const p = state.place, st = sunTimes(date, p.lat, p.lon), uv = state.data.uv && state.data.uv.get(date);
+  const parts = [];
+  if(st){
+    parts.push('<span>'+SUNUP+'Alba <b>'+hm(st.rise)+'</b></span>', '<span>'+SUNDOWN+'Tramonto <b>'+hm(st.set)+'</b></span>');
+    if(light) parts.push('<span>'+lightText(st)+'</span>');
+  }
+  if(uv != null) parts.push('<span>UV max <b class="uv-'+uvCat(uv).replace(" ","-")+'">'+Math.round(uv)+'</b> '+uvCat(uv)+'</span>');
+  return parts.join("");
+}
 
 /* mare: per i luoghi vicino a un comune costiero, previsione nel punto in mare di quel comune (comuni.js) */
 const SEA_MAX_KM = 8;
@@ -588,6 +636,7 @@ function renderAll(){
   $("nwind").textContent = h.ws!=null ? Math.round(h.ws)+" km/h "+windDir(h.wd) : "–";
   $("ngust").textContent = h.wg!=null ? Math.round(h.wg)+" km/h" : "–";
   const today = D.days[0];
+  $("nsun").innerHTML = today ? sunHTML(today.date, false) : "";
   $("nagree").innerHTML = today ? '<span class="pill a-'+today.agree+'">'+AGREE_TXT[today.agree]+'</span>' : "";
   const hhmm = D.fetched.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
   let st = (D.offline ? "Sei offline: previsioni del "+D.fetched.toLocaleDateString("it-IT",{day:"numeric",month:"short"})+" alle "+hhmm : "Aggiornato alle "+hhmm)+" · "+D.active.length+" modelli su "+MODELS.length+" disponibili";
@@ -632,6 +681,7 @@ function renderAlerts(D){
 function renderDay(){
   const D = state.data; const d = D.days[state.day]; if(!d) return;
   $("dtitle").textContent = (state.day===0?"Oggi, ":state.day===1?"Domani, ":"")+dayFull(d.date);
+  $("dsun").innerHTML = sunHTML(d.date, true);
   $("dsub").innerHTML = LABEL[d.kind]+" · concordanza <span class=\"a-"+d.agree+"\" style=\"font-weight:700\">"+AGREE_TXT[d.agree].toLowerCase()+"</span>. "+agreeSentence(d);
   renderSea(); renderLegend(d); renderChart(d); renderTable(d);
   $("readout").textContent = PHONE.matches ? "Tocca il grafico per leggere i valori di un'ora."
@@ -673,6 +723,14 @@ function renderChart(d){
   lo = Math.floor((lo-1)/step)*step; hi = Math.ceil((hi+1)/step)*step;
   const y = v => TB - (v-lo)/(hi-lo)*(TB-T);
   let s = "";
+  // ore di buio ombreggiate: posizione di alba e tramonto sull'asse delle ore
+  const st = sunTimes(d.date, state.place.lat, state.place.lon);
+  const jAt = dt => { const [hh, mm] = hm(dt).split(":").map(Number); const k = pts.findIndex(h => +h.time.slice(11,13) === hh); return k < 0 ? null : Math.min(n-1, k + mm/60); };
+  if(st){
+    const jr = jAt(st.rise), js = jAt(st.set);
+    if(jr != null) s += '<rect class="night" x="'+L+'" y="'+T+'" width="'+(x(jr)-L).toFixed(1)+'" height="'+(RB-T)+'" fill="var(--line)" fill-opacity="0.45"/>';
+    if(js != null) s += '<rect class="night" x="'+x(js).toFixed(1)+'" y="'+T+'" width="'+(W-R-x(js)).toFixed(1)+'" height="'+(RB-T)+'" fill="var(--line)" fill-opacity="0.45"/>';
+  }
   for(let v=lo; v<=hi; v+=step){
     s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)" stroke-width="1"/>';
     s += '<text x="'+(L-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+v+'°</text>';
@@ -773,14 +831,15 @@ async function load(place){
   document.body.classList.add("loading"); $("refresh").textContent = "Aggiorno…";
   showErr(null);
   const sp = seaPoint(place);
-  const [raw, marine] = await Promise.all([
+  const [raw, marine, uv] = await Promise.all([
     Promise.all(MODELS.map(m => getJSON(modelURL(m,place))
       .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt, elev:j.elevation}))
       .catch(e => ({m, h:null, err:e.message})))),
-    sp ? getJSON(marineURL(sp)).catch(() => null) : null // se il mare non risponde, la pagina va avanti senza
+    sp ? getJSON(marineURL(sp)).catch(() => null) : null, // se il mare non risponde, la pagina va avanti senza
+    getJSON(uvURL(place)).catch(() => null)                // idem per l'indice UV
   ]);
   const D = build(raw);
-  if(D) D.sea = buildSea(marine, D, sp);
+  if(D){ D.sea = buildSea(marine, D, sp); D.uv = buildUV(uv); }
   state.busy = false;
   document.body.classList.remove("loading"); $("refresh").textContent = "Aggiorna";
   if(!D){

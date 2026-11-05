@@ -71,6 +71,42 @@ test("il grafico si legge da tastiera", async ({ page, api }) => {
   await expect(page.locator("#cursor")).toHaveAttribute("visibility", "visible");
 });
 
+test.describe("sole e UV", () => {
+  const hhmm = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+
+  test("alba, tramonto e UV massimo di oggi, e del giorno scelto", async ({ page, api }) => {
+    api.opt.uv = { 0: 6.6, 1: 1.2 };
+    await page.goto("/");
+    await ready(page);
+    const now = page.locator("#nsun");
+    const [rise, set] = (await now.locator("b").allInnerTexts()).slice(0, 2);
+    expect(hhmm(rise)).toBeGreaterThan(4 * 60);   // in Calabria tra le 5:30 e le 7:15
+    expect(hhmm(rise)).toBeLessThan(8 * 60);
+    expect(hhmm(set)).toBeGreaterThan(16 * 60);   // e tra le 16:30 e le 20:30
+    expect(hhmm(set)).toBeLessThan(21 * 60);
+    await expect(now).toContainText("UV max 7 alto");
+    expect(api.uvCalls).toBe(1);
+    await page.locator('.day[data-i="1"]').click();
+    await expect(page.locator("#dsun")).toContainText("di luce");
+    await expect(page.locator("#dsun")).toContainText("UV max 1 basso");
+  });
+
+  test("il grafico ombreggia le ore di buio", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await expect(page.locator("#chart rect.night")).toHaveCount(2);
+  });
+
+  test("senza UV restano alba e tramonto", async ({ page, api }) => {
+    api.uvDown = true;
+    await page.goto("/");
+    await ready(page);
+    await expect(page.locator("#nsun")).toContainText("Alba");
+    await expect(page.locator("#nsun")).not.toContainText("UV");
+    await expect(page.locator("#status")).toContainText("7 modelli su 7");
+  });
+});
+
 test.describe("mare", () => {
   test("un comune dell'interno non ha il mare e non lo chiede", async ({ page, api }) => {
     await page.goto("/");
