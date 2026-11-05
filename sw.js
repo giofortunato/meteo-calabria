@@ -4,15 +4,20 @@ const FORECAST = "meteo-forecast-v1";
 const FONTS = "meteo-fonts-v1";
 const SHELL_FILES = ["./", "comuni.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 const MAX_AGE = 24*60*60*1000; // oltre, una previsione offline è troppo vecchia per mostrarla
+const FLAG = "__update";         // nella cache dell'app: c'è una versione più nuova di quella che la pagina mostra
 const MAX_PLACES = 10;           // luoghi tenuti per l'uso offline: ~400 KB l'uno (7 modelli)
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
 });
-self.addEventListener("activate", e => e.waitUntil(
-  caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("meteo-shell-") && k !== SHELL).map(k => caches.delete(k))))
-    .then(() => caches.open(FORECAST)).then(prune)
-    .then(() => self.clients.claim())));
+// Se c'erano cache dell'app più vecchie è un aggiornamento: le pagine aperte mostrano ancora la versione precedente.
+self.addEventListener("activate", e => e.waitUntil((async () => {
+  const old = (await caches.keys()).filter(k => k.startsWith("meteo-shell-") && k !== SHELL);
+  await Promise.all(old.map(k => caches.delete(k)));
+  await prune(await caches.open(FORECAST));
+  await self.clients.claim();
+  if(old.length) await flagUpdate(await caches.open(SHELL));
+})()));
 
 self.addEventListener("fetch", e => {
   if(e.request.method !== "GET") return;
@@ -78,14 +83,28 @@ async function cacheFirst(req){
 }
 
 // Subito dalla cache, aggiornata in background: la nuova versione arriva alla riapertura.
+// Se la copia scaricata è diversa da quella appena servita, la pagina aperta è vecchia: lo si segnala.
 async function shell(e){
   const cache = await caches.open(SHELL);
-  const key = e.request.mode === "navigate" ? "./" : e.request;
+  const nav = e.request.mode === "navigate";
+  const key = nav ? "./" : e.request;
   const hit = await cache.match(key);
+  const served = hit && hit.clone();
+  if(nav && hit) await cache.delete(FLAG); // questa pagina riceve già la copia più recente in cache
   const net = fetch(e.request).then(async res => {
-    if(res.ok) await cache.put(key, res.clone());
+    if(res.ok){
+      const changed = served && await served.text() !== await res.clone().text();
+      await cache.put(key, res.clone());
+      if(changed) await flagUpdate(cache);
+    }
     return res;
   });
   if(hit){ e.waitUntil(net.catch(() => {})); return hit; }
   return net;
+}
+
+// Segno in cache per la pagina che non è ancora pronta a ricevere messaggi, più un messaggio per quelle già aperte.
+async function flagUpdate(cache){
+  await cache.put(FLAG, new Response(String(Date.now())));
+  for(const c of await self.clients.matchAll({type:"window", includeUncontrolled:true})) c.postMessage({type:"update"});
 }

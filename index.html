@@ -39,6 +39,7 @@
   --good:#5cc08a; --mid:#e0b04a; --bad:#e5775f; color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
 .wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;
@@ -156,6 +157,13 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
 .alerts li button{border:0;background:none;padding:0;font-weight:700;color:var(--sea);text-decoration:underline;text-underline-offset:2px}
 .alerts p{margin:0;font-size:13px;color:var(--muted)}
 .alerts a{color:var(--sea)}
+.update{position:fixed;z-index:20;left:50%;transform:translateX(-50%);bottom:max(16px,env(safe-area-inset-bottom,0px));
+  width:max-content;max-width:calc(100% - 32px);display:flex;align-items:center;gap:12px;
+  background:var(--ink);color:var(--bg);border-radius:12px;padding:8px 8px 8px 16px;box-shadow:0 10px 30px rgb(0 0 0 / .25);font-size:15px}
+.update button{border:0;border-radius:8px;font-weight:700}
+.update .go{background:var(--bg);color:var(--ink);padding:8px 14px;min-height:40px}
+.update .x{background:none;color:inherit;width:40px;height:40px;font-size:22px;line-height:1;opacity:.75}
+.update button:focus-visible{outline-color:var(--bg)}
 .err{background:var(--surface);border:1px solid var(--bad);color:var(--ink);border-radius:12px;padding:16px}
 .err b{color:var(--bad)}
 .ic{color:var(--muted)}
@@ -284,6 +292,12 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     <p><b>Probabilità di pioggia</b> = quota pesata di modelli che prevedono almeno 1 mm nella giornata. Le temperature sono già corrette per la quota reale del comune.</p>
     <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA. Elenco dei comuni: <a href="https://www.gardainformatica.it/database-comuni-italiani" target="_blank" rel="noopener">Garda Informatica</a> (MIT), da dati ISTAT.</p>
   </section>
+</div>
+
+<div class="update" id="update" role="status" hidden>
+  <span>È disponibile una nuova versione dell'app.</span>
+  <button type="button" class="go" id="upd-go">Ricarica</button>
+  <button type="button" class="x" id="upd-x" aria-label="Chiudi l'avviso">×</button>
 </div>
 
 <script src="comuni.js"></script>
@@ -798,7 +812,18 @@ document.addEventListener("visibilitychange", () => {
   load(c ? fromComune(c) : DEFAULT_PLACE);
 })();
 
-if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.error("Service worker non registrato:", e));
+/* nuova versione: il service worker la scarica in background e lo segnala (messaggio o segno __update in cache) */
+function showUpdate(){
+  let dismissed = false; try{ dismissed = !!sessionStorage.getItem("meteoCalabria.updHidden"); }catch(e){}
+  if(!dismissed) $("update").hidden = false;
+}
+$("upd-go").addEventListener("click", () => location.reload());
+$("upd-x").addEventListener("click", () => { $("update").hidden = true; try{ sessionStorage.setItem("meteoCalabria.updHidden","1"); }catch(e){} });
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.addEventListener("message", e => { if(e.data && e.data.type === "update") showUpdate(); });
+  navigator.serviceWorker.register("sw.js").catch(e => console.error("Service worker non registrato:", e));
+  if("caches" in window) caches.match("__update").then(r => { if(r) showUpdate(); }).catch(() => {});
+}
 </script>
 </body>
 </html>
