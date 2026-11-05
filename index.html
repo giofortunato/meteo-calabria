@@ -129,6 +129,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .panel .sub{margin:-8px 0 0;color:var(--muted);font-size:15px}
 .chart-box{overflow-x:auto}
 .chart-box svg{display:block;width:100%;min-width:560px;height:auto;touch-action:pan-x}
+.chart-box svg:focus-visible{outline:2px solid var(--sea);outline-offset:-2px;border-radius:6px}
 .readout{font-size:14px;min-height:21px;color:var(--ink);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:8px 12px}
 .legend{display:flex;flex-wrap:wrap;gap:6px}
 .legend button{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px}
@@ -277,8 +278,9 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     <h2 id="dtitle">Dettaglio ora per ora</h2>
     <p class="sub" id="dsub"></p>
     <div class="legend" id="legend"></div>
-    <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" role="img" aria-label="Andamento orario di temperatura e pioggia"></svg></div>
+    <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" tabindex="0" role="slider" aria-label="Ora del grafico di temperatura e pioggia" aria-describedby="khint"></svg></div>
     <div class="readout" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
+    <span id="khint" hidden>Frecce sinistra e destra: un'ora. Pagina su e giù: tre ore. Inizio e Fine: prima e ultima ora.</span>
   </section>
 
   <section class="panel">
@@ -575,7 +577,8 @@ function renderDay(){
   $("dtitle").textContent = (state.day===0?"Oggi, ":state.day===1?"Domani, ":"")+dayFull(d.date);
   $("dsub").innerHTML = LABEL[d.kind]+" · concordanza <span class=\"a-"+d.agree+"\" style=\"font-weight:700\">"+AGREE_TXT[d.agree].toLowerCase()+"</span>. "+agreeSentence(d);
   renderLegend(d); renderChart(d); renderTable(d);
-  $("readout").textContent = "Tocca il grafico per leggere i valori di un'ora.";
+  $("readout").textContent = PHONE.matches ? "Tocca il grafico per leggere i valori di un'ora."
+    : "Passa sul grafico, o selezionalo e usa le frecce, per leggere i valori di un'ora.";
 }
 
 function renderLegend(d){
@@ -628,20 +631,45 @@ function renderChart(d){
   pts.forEach((h,j)=>{ const hr=+h.time.slice(11,13); if(hr%3) return; s += '<text x="'+x(j)+'" y="'+XL+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+String(hr).padStart(2,"0")+'</text>'; });
   // adesso
   const nowJ = d.ids.indexOf(state.data.nowIdx);
-  if(nowJ>=0) s += '<line x1="'+x(nowJ)+'" x2="'+x(nowJ)+'" y1="'+T+'" y2="'+RB+'" stroke="var(--sea)" stroke-dasharray="3 3"/><text x="'+(x(nowJ)+4)+'" y="'+(T+10)+'" font-size="11" fill="var(--sea)" font-family="var(--body)" font-weight="700">adesso</text>';
+  if(nowJ>=0){
+    const left = x(nowJ) > W-R-50; // vicino al bordo destro la scritta va a sinistra della linea
+    s += '<line x1="'+x(nowJ)+'" x2="'+x(nowJ)+'" y1="'+T+'" y2="'+RB+'" stroke="var(--sea)" stroke-dasharray="3 3"/><text x="'+(x(nowJ)+(left?-4:4))+'" y="'+(T+10)+'" text-anchor="'+(left?"end":"start")+'" font-size="11" fill="var(--sea)" font-family="var(--body)" font-weight="700">adesso</text>';
+  }
   s += '<line id="cursor" x1="0" x2="0" y1="'+T+'" y2="'+RB+'" stroke="var(--ink)" stroke-opacity="0.35" visibility="hidden"/>';
   // area interattiva: l'ora si ricava dalla x, perché col touch e.target resta quello del primo tocco
   s += '<rect x="0" y="0" width="'+W+'" height="'+RB+'" fill="transparent"/>';
   svg.innerHTML = s;
+  // un'ora scelta (puntatore o tastiera): cursore, riquadro di lettura e valore del cursore per gli screen reader
+  let cur = -1;
+  const show = j => {
+    cur = j; const h = pts[j], c = svg.querySelector("#cursor");
+    c.setAttribute("x1",x(j)); c.setAttribute("x2",x(j)); c.setAttribute("visibility","visible");
+    const txt = hourText(h);
+    $("readout").textContent = txt;
+    svg.setAttribute("aria-valuenow", j); svg.setAttribute("aria-valuetext", txt);
+  };
+  const start = nowJ >= 0 ? nowJ : Math.max(0, pts.findIndex(h => h.time.endsWith("12:00")));
+  svg.setAttribute("aria-valuemin", 0); svg.setAttribute("aria-valuemax", n-1);
+  svg.setAttribute("aria-valuenow", start); svg.setAttribute("aria-valuetext", hourText(pts[start]));
   svg.onpointermove = svg.onclick = e => {
     const b = svg.getBoundingClientRect();
-    const j = Math.max(0, Math.min(n-1, Math.round(((e.clientX-b.left)/b.width*W-L)/(W-L-R)*(n-1))));
-    const h = pts[j]; const c = svg.querySelector("#cursor");
-    c.setAttribute("x1",x(j)); c.setAttribute("x2",x(j)); c.setAttribute("visibility","visible");
-    $("readout").textContent = "Ore "+h.time.slice(11,16)+" · "+(h.t!=null?n1(h.t)+"°":"–")+(h.n>1?" (modelli "+n1(h.tmin)+"–"+n1(h.tmax)+"°)":"")+
-      " · pioggia "+n1(h.p)+" mm"+(h.pwet>=0.1?" ("+Math.round(h.pwet*100)+"% dei modelli)":"")+
-      " · vento "+(h.ws!=null?Math.round(h.ws):"–")+" km/h "+windDir(h.wd)+(h.wg!=null?", raffiche "+Math.round(h.wg):"");
+    show(Math.max(0, Math.min(n-1, Math.round(((e.clientX-b.left)/b.width*W-L)/(W-L-R)*(n-1)))));
   };
+  svg.onkeydown = e => {
+    const from = cur < 0 ? start : cur;
+    const to = {ArrowRight:from+1, ArrowUp:from+1, ArrowLeft:from-1, ArrowDown:from-1,
+                PageUp:from+3, PageDown:from-3, Home:0, End:n-1}[e.key];
+    if(to === undefined) return;
+    e.preventDefault();
+    // la prima freccia mostra l'ora di partenza (adesso, o le 12); Inizio e Fine vanno subito agli estremi
+    show(cur < 0 && e.key !== "Home" && e.key !== "End" ? start : Math.max(0, Math.min(n-1, to)));
+  };
+}
+
+function hourText(h){
+  return "Ore "+h.time.slice(11,16)+" · "+(h.t!=null?n1(h.t)+"°":"–")+(h.n>1?" (modelli "+n1(h.tmin)+"–"+n1(h.tmax)+"°)":"")+
+    " · pioggia "+n1(h.p)+" mm"+(h.pwet>=0.1?" ("+Math.round(h.pwet*100)+"% dei modelli)":"")+
+    " · vento "+(h.ws!=null?Math.round(h.ws):"–")+" km/h "+windDir(h.wd)+(h.wg!=null?", raffiche "+Math.round(h.wg):"");
 }
 
 function renderTable(d){
