@@ -1,0 +1,635 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Meteo Calabria</title>
+<meta name="description" content="Il consenso di sette modelli meteorologici, comune per comune">
+<meta name="theme-color" content="#11648f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Meteo Calabria">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: colonna unica da bollettino, "adesso" in testa, striscia dei 7 giorni, dettaglio orario e tabella per istituto */
+:root{
+  --bg:#edf2f3; --surface:#ffffff; --ink:#14232c; --muted:#596a73; --line:#d3dde1;
+  --sea:#11648f; --sea-soft:#d9e9f2; --warm:#c46a14; --rain:#3657c4;
+  --good:#2b7a4b; --mid:#a8740d; --bad:#b23d2b;
+  --display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d161b; --surface:#142128; --ink:#e3ebee; --muted:#93a4ad; --line:#24353e;
+    --sea:#5cb2dd; --sea-soft:#17303d; --warm:#e8964a; --rain:#8aa3f2;
+    --good:#5cc08a; --mid:#e0b04a; --bad:#e5775f; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d161b; --surface:#142128; --ink:#e3ebee; --muted:#93a4ad; --line:#24353e;
+  --sea:#5cb2dd; --sea-soft:#17303d; --warm:#e8964a; --rain:#8aa3f2;
+  --good:#5cc08a; --mid:#e0b04a; --bad:#e5775f; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body)}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:20px}
+h1,h2,h3{font-family:var(--display);font-weight:700;margin:0;text-wrap:balance;letter-spacing:.01em}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-offset:2px}
+
+/* testata */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:30px;line-height:1}
+.brand h1 span{color:var(--sea)}
+.brand p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.refresh{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px}
+
+/* ricerca */
+.search{display:flex;flex-direction:column;gap:10px;position:relative}
+.search input{width:100%;font:inherit;font-size:17px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.results{position:absolute;top:52px;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgb(0 0 0 / .15);overflow:hidden}
+.results button{display:block;width:100%;text-align:left;border:0;background:none;padding:11px 14px;border-bottom:1px solid var(--line)}
+.results button:last-child{border-bottom:0}
+.results button:hover,.results button:focus-visible{background:var(--sea-soft)}
+.results small{color:var(--muted)}
+.results .empty{padding:11px 14px;color:var(--muted)}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.quick button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 11px;font-size:14px;color:var(--muted)}
+.quick button[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:var(--surface)}
+
+/* adesso */
+.now{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;grid-template-columns:auto 1fr;gap:20px 28px;align-items:center}
+.now .place h2{font-size:26px;line-height:1.1}
+.now .place p{margin:2px 0 0;color:var(--muted);font-size:14px}
+.now .big{display:flex;align-items:center;gap:14px}
+.now .big .ic{width:64px;height:64px}
+.now .big .t{font-family:var(--display);font-size:72px;line-height:.9;font-weight:600}
+.now .big .cond{font-size:18px;font-weight:600}
+.now .big .range{color:var(--muted);font-size:14px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px 20px;min-width:0}
+.facts div{display:flex;flex-direction:column;gap:2px}
+.facts .v{font-size:18px;font-weight:600}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid currentColor;width:max-content}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.a-alta{color:var(--good)} .a-media{color:var(--mid)} .a-bassa{color:var(--bad)}
+.status{font-size:13px;color:var(--muted);grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
+
+/* giorni */
+.days-wrap{overflow-x:auto;margin-inline:-4px;padding:4px}
+.days{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));gap:8px}
+.day{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
+.day[aria-pressed="true"]{border-color:var(--sea);box-shadow:inset 0 0 0 1px var(--sea);background:var(--sea-soft)}
+.day .dn{font-family:var(--display);font-weight:700;font-size:17px}
+.day .dd{font-size:12px;color:var(--muted);margin-top:-4px}
+.day .ic{width:38px;height:38px;margin:4px 0}
+.day .tt{font-size:15px}
+.day .tt b{color:var(--warm)}
+.day .rp{font-size:13px;color:var(--rain);font-weight:600}
+.day .dot{width:8px;height:8px;border-radius:50%;background:currentColor;margin-top:2px}
+
+/* dettaglio */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel h2{font-size:22px}
+.panel .sub{margin:-8px 0 0;color:var(--muted);font-size:15px}
+.chart-box{overflow-x:auto}
+.chart-box svg{display:block;width:100%;min-width:560px;height:auto;touch-action:pan-x}
+.readout{font-size:14px;min-height:21px;color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.legend button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px}
+.legend button[aria-pressed="false"]{opacity:.45}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.legend .cons{border-color:transparent;cursor:default;font-weight:700}
+
+/* tabella */
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:600px;font-size:14px}
+th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+td .ente{display:block;font-size:12px;color:var(--muted)}
+td .sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+tr.cons td{font-weight:700;border-bottom:0;background:var(--sea-soft)}
+td.na{color:var(--muted);font-style:italic;text-align:left}
+
+.note{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:8px;max-width:70ch}
+.note p{margin:0}
+.note a{color:var(--sea)}
+.err{background:var(--surface);border:1px solid var(--bad);color:var(--ink);border-radius:12px;padding:16px}
+.err b{color:var(--bad)}
+.ic{color:var(--muted)}
+.ic.sun{color:var(--warm)} .ic.rain,.ic.showers,.ic.storm,.ic.snow{color:var(--rain)}
+.loading{opacity:.55;transition:opacity .2s}
+
+@media (max-width:640px){
+  .wrap{gap:14px;padding-top:max(14px,env(safe-area-inset-top,0px));padding-bottom:max(32px,env(safe-area-inset-bottom,0px))}
+  /* testata su una riga */
+  .top{flex-wrap:nowrap;align-items:center}
+  .brand h1{font-size:27px}
+  .brand p{display:none}
+  .refresh{flex:none;min-height:44px}
+  /* comuni e giorni scorrono fino al bordo, così si capisce che continuano */
+  .quick,.days-wrap{margin-inline:-16px;padding-inline:16px;overflow-x:auto;scrollbar-width:none;scroll-padding-inline:16px}
+  .quick::-webkit-scrollbar,.days-wrap::-webkit-scrollbar{display:none}
+  .quick{flex-wrap:nowrap}
+  .quick button{flex:none;min-height:40px;white-space:nowrap}
+  .days-wrap{scroll-snap-type:x proximity}
+  .days{grid-template-columns:repeat(7,92px);width:max-content}
+  .day{scroll-snap-align:start;padding:10px 6px}
+  .day .tt{font-size:14px;white-space:nowrap}
+  .day .rp{font-size:12px;line-height:1.25}
+  .day .rp span:last-child{white-space:nowrap}
+  /* adesso */
+  .now{grid-template-columns:minmax(0,1fr);gap:14px;padding:16px}
+  .now > div:empty{display:none}
+  .now .big{gap:10px}
+  .now .big .ic{width:52px;height:52px;flex:none}
+  .now .big .t{font-size:56px}
+  .now .big > div:last-child{min-width:0}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  /* grafico intero nella larghezza dello schermo: si scorre la pagina, il trascinamento laterale legge le ore */
+  .panel{padding:16px}
+  .chart-box{overflow:visible}
+  .chart-box svg{min-width:0;touch-action:pan-y}
+  .readout{min-height:63px}
+  .legend button{min-height:36px}
+  /* tabella: solo le colonne utili, senza scroll laterale */
+  table{min-width:0;font-size:13px}
+  th,td{padding:7px 4px}
+  th{font-size:11px;letter-spacing:.03em}
+  th{white-space:normal;vertical-align:bottom}
+  td .ente{display:none}
+  .no-sm{display:none}
+}
+@media (min-width:641px){.only-sm{display:none}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Meteo <span>Calabria</span></h1>
+      <p>Il consenso di sette modelli meteorologici, comune per comune</p>
+    </div>
+    <button class="refresh" id="refresh" type="button">Aggiorna</button>
+  </header>
+
+  <section class="search" aria-label="Scegli il comune">
+    <input id="q" type="search" placeholder="Cerca un comune calabrese…" autocomplete="off" aria-label="Cerca un comune calabrese">
+    <div class="results" id="results" hidden></div>
+    <div class="quick" id="quick"></div>
+  </section>
+
+  <div id="err" class="err" hidden></div>
+
+  <section class="now" id="now" aria-live="polite">
+    <div class="place"><h2 id="pname">Caricamento…</h2><p id="pmeta"></p></div>
+    <div></div>
+    <div class="big">
+      <svg class="ic" id="nic" viewBox="0 0 24 24"></svg>
+      <div>
+        <div class="t num" id="nt">--°</div>
+      </div>
+      <div>
+        <div class="cond" id="ncond"></div>
+        <div class="range" id="nrange"></div>
+      </div>
+    </div>
+    <div class="facts">
+      <div><span class="label">Pioggia prossime 6 ore</span><span class="v num" id="nrain">–</span></div>
+      <div><span class="label">Vento</span><span class="v num" id="nwind">–</span></div>
+      <div><span class="label">Raffiche</span><span class="v num" id="ngust">–</span></div>
+      <div><span class="label">Concordanza oggi</span><span id="nagree"></span></div>
+    </div>
+    <div class="status" id="status">Sto scaricando le previsioni…</div>
+  </section>
+
+  <section aria-label="Prossimi 7 giorni">
+    <div class="days-wrap"><div class="days" id="days"></div></div>
+  </section>
+
+  <section class="panel" id="detail">
+    <h2 id="dtitle">Dettaglio ora per ora</h2>
+    <p class="sub" id="dsub"></p>
+    <div class="legend" id="legend"></div>
+    <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" role="img" aria-label="Andamento orario di temperatura e pioggia"></svg></div>
+    <div class="readout num" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Cosa dice ogni istituto</h2>
+    <p class="sub" id="tsub">Valori del giorno selezionato, modello per modello.</p>
+    <div class="tbl"><table id="tbl"></table></div>
+  </section>
+
+  <section class="note">
+    <p><b>Come funziona.</b> Per ogni ora la pagina scarica le previsioni di sette modelli e ne fa una media pesata. Nei primi tre giorni pesa di più ICON-2I di ItaliaMeteo, che ha una maglia di circa 2 km e "vede" Sila, Pollino e Aspromonte meglio dei modelli globali; dal quarto giorno il peso passa soprattutto a ECMWF. La fascia colorata nel grafico è la distanza tra il modello più freddo e quello più caldo: se è stretta i modelli sono d'accordo, se è larga la previsione è incerta.</p>
+    <p><b>Probabilità di pioggia</b> = quota pesata di modelli che prevedono almeno 1 mm nella giornata. Le temperature sono già corrette per la quota reale del comune.</p>
+    <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA.</p>
+  </section>
+</div>
+
+<script>
+"use strict";
+const MODELS = [
+  {id:"italia_meteo_arpae_icon_2i", name:"ICON-2I", ente:"ItaliaMeteo · ARPAE", res:"2,2 km", short:3,   long:0,   color:"#d6455d"},
+  {id:"ecmwf_ifs",                  name:"IFS HRES", ente:"ECMWF (Centro europeo)", res:"9 km", short:2,   long:3,   color:"#3c78d8"},
+  {id:"ecmwf_aifs025_single",       name:"AIFS",     ente:"ECMWF · modello AI", res:"28 km",   short:1.2, long:2,   color:"#8e6bd1"},
+  {id:"icon_eu",                    name:"ICON-EU",  ente:"DWD (Germania)", res:"7 km",        short:1.5, long:1.5, color:"#2a9d8f"},
+  {id:"meteofrance_arpege_europe",  name:"ARPEGE",   ente:"Météo-France", res:"11 km",         short:1,   long:1,   color:"#e08a1e"},
+  {id:"ukmo_global_deterministic_10km", name:"UM Global", ente:"UK Met Office", res:"10 km",  short:1,   long:1,   color:"#8b8f99"},
+  {id:"gfs_global",                 name:"GFS",      ente:"NOAA (USA)", res:"13 km",           short:0.7, long:0.8, color:"#6aa84f"}
+];
+const VARS = "temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code";
+const QUICK = ["Cosenza","Catanzaro","Reggio Calabria","Crotone","Vibo Valentia","Lamezia Terme","Camigliatello Silano","Tropea","Scalea","Santa Domenica Talao"];
+const DEFAULT_PLACE = {name:"Santa Domenica Talao", lat:39.8186, lon:15.8536, elev:null, prov:"Cosenza"};
+const STORE = "meteoCalabria.place";
+
+const $ = id => document.getElementById(id);
+const nf1 = new Intl.NumberFormat("it-IT",{maximumFractionDigits:1});
+const n1 = v => nf1.format(Math.round(v*10)/10);
+const deg = v => Math.round(v) + "°";
+const DOW = ["Dom","Lun","Mar","Mer","Gio","Ven","Sab"];
+const MON = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+
+const state = {place:null, data:null, day:0, hidden:new Set(), busy:false};
+
+/* ---------- icone ---------- */
+const CL_HI = "M7 18h10a4 4 0 0 0 .4-7.98A5.5 5.5 0 0 0 6.8 9.1 4.5 4.5 0 0 0 7 18z";
+const CL_UP = "M7 15h10a4 4 0 0 0 .4-7.98A5.5 5.5 0 0 0 6.8 6.1 4.5 4.5 0 0 0 7 15z";
+const ICONS = {
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  moon:'<path d="M19.5 14.5A7.5 7.5 0 1 1 9.5 4.5a6 6 0 0 0 10 10z"/>',
+  partly:'<circle cx="8.5" cy="8.5" r="3"/><path d="M8.5 2.6v1.3M2.6 8.5h1.3M4.3 4.3l.9.9M12.7 4.3l-.9.9"/><path d="M9.5 20h8.5a3.6 3.6 0 0 0 .3-7.2 4.9 4.9 0 0 0-9.3-.9 4.1 4.1 0 0 0 .5 8.1z"/>',
+  cloud:'<path d="'+CL_HI+'"/>',
+  showers:'<path d="'+CL_UP+'"/><path d="M10 18l-1 2.5M14 18l-1 2.5"/>',
+  rain:'<path d="'+CL_UP+'"/><path d="M8 18l-1 2.5M12 18l-1 2.5M16 18l-1 2.5"/>',
+  storm:'<path d="'+CL_UP+'"/><path d="M12.5 15.5l-2.2 3.6h3.2l-2.2 3.6"/>',
+  snow:'<path d="'+CL_UP+'"/><path d="M8 18.5h.01M12 18.5h.01M16 18.5h.01M10 21.5h.01M14 21.5h.01" stroke-width="2.6"/>'
+};
+const LABEL = {sun:"Sereno", moon:"Sereno", partly:"Poco nuvoloso", cloud:"Nuvoloso", showers:"Possibili rovesci", rain:"Pioggia", storm:"Temporali", snow:"Neve"};
+function setIcon(svg, kind){
+  svg.setAttribute("class","ic "+(kind==="moon"?"":kind));
+  svg.innerHTML = '<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+ICONS[kind]+'</g>';
+}
+function iconHTML(kind){
+  return '<svg class="ic '+kind+'" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+ICONS[kind]+'</g></svg>';
+}
+
+/* ---------- rete ---------- */
+async function getJSON(url){
+  const ctl = new AbortController(); const to = setTimeout(() => ctl.abort(), 20000);
+  let r;
+  try{ r = await fetch(url, {signal:ctl.signal}); }
+  catch(e){ throw new Error(e.name==="AbortError" ? "tempo scaduto" : "connessione bloccata ("+e.message+")"); }
+  finally{ clearTimeout(to); }
+  if(!r.ok) throw new Error("HTTP "+r.status);
+  const j = await r.json();
+  if(j && j.error) throw new Error(j.reason || "errore API");
+  const at = r.headers.get("x-cached-at"); // presente solo se il service worker risponde dalla cache offline
+  return at ? {...j, cachedAt:+at} : j;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function geocode(name){
+  const j = await getJSON("https://geocoding-api.open-meteo.com/v1/search?count=25&language=it&format=json&countryCode=IT&name="+encodeURIComponent(name));
+  return (j.results||[]).filter(r => /calabria/i.test(r.admin1||""))
+    .map(r => ({name:r.name, lat:r.latitude, lon:r.longitude, elev:r.elevation ?? null, prov:r.admin2||""}));
+}
+function modelURL(m, p){
+  return "https://api.open-meteo.com/v1/forecast?latitude="+p.lat.toFixed(4)+"&longitude="+p.lon.toFixed(4)+
+    "&hourly="+VARS+"&models="+m.id+"&forecast_days=7&timezone=Europe%2FRome&wind_speed_unit=kmh";
+}
+const pick = (h, v, id) => h[v] ?? h[v+"_"+id] ?? null;
+
+/* ---------- calcolo consenso ---------- */
+function wOf(m, lead){ return lead <= 72 ? m.short : m.long; }
+function wavg(list){ let s=0, w=0; for(const [v,k] of list){ s+=v*k; w+=k; } return w ? s/w : null; }
+
+function build(raw){
+  const ok = raw.filter(x => x.h && x.h.time);
+  if(!ok.length) return null;
+  const times = ok[0].h.time;
+  const offset = ok[0].offset || 0;
+  const series = {};
+  for(const {m,h} of ok){
+    const idx = new Map(h.time.map((t,i)=>[t,i]));
+    const get = v => { const a = pick(h,v,m.id); return times.map(t => { const i = idx.get(t); const x = (a && i!=null) ? a[i] : null; return (x==null || Number.isNaN(x)) ? null : x; }); };
+    const s = {t:get("temperature_2m"), p:get("precipitation"), c:get("cloud_cover"), ws:get("wind_speed_10m"), wd:get("wind_direction_10m"), wg:get("wind_gusts_10m"), wc:get("weather_code")};
+    if(s.t.some(v => v!=null)) series[m.id] = s;
+  }
+  const active = MODELS.filter(m => series[m.id]);
+  if(!active.length) return null;
+
+  const nowKey = new Date(Date.now()+offset*1000).toISOString().slice(0,13)+":00";
+  let nowIdx = times.indexOf(nowKey); if(nowIdx < 0) nowIdx = 0;
+
+  const H = times.map((t,i) => {
+    const lead = Math.max(0, i-nowIdx);
+    const T=[], P=[], C=[], WS=[], WG=[]; let wet=0, storm=0, wsum=0, su=0, cu=0; const vals={};
+    for(const m of active){
+      const s = series[m.id], tv = s.t[i]; if(tv==null) continue;
+      const w = wOf(m, lead); if(w<=0) continue;
+      vals[m.id] = tv; T.push([tv,w]); wsum += w;
+      const pv = s.p[i] ?? 0; P.push([pv,w]); if(pv >= 0.1) wet += w;
+      if(s.c[i]!=null) C.push([s.c[i],w]);
+      if(s.ws[i]!=null) WS.push([s.ws[i],w]);
+      if(s.wg[i]!=null) WG.push([s.wg[i],w]);
+      if(s.wc[i]!=null && s.wc[i] >= 95) storm += w;
+      if(s.wd[i]!=null){ const r = s.wd[i]*Math.PI/180; su += Math.sin(r)*w; cu += Math.cos(r)*w; }
+    }
+    const tv = T.map(x=>x[0]);
+    return {time:t, n:T.length, t:wavg(T), tmin:tv.length?Math.min(...tv):null, tmax:tv.length?Math.max(...tv):null,
+      p:wavg(P)||0, pwet:wsum?wet/wsum:0, storm:wsum?storm/wsum:0, cloud:wavg(C), ws:wavg(WS), wg:wavg(WG),
+      wd:(su||cu)?((Math.atan2(su,cu)*180/Math.PI)+360)%360:null, vals};
+  });
+
+  // dati offline di ieri: il primo giorno deve restare "oggi"
+  const dates = [...new Set(times.map(t=>t.slice(0,10)))].filter(d => d >= nowKey.slice(0,10));
+  const days = [];
+  for(const d of dates){
+    const ids = times.map((t,i)=>t.startsWith(d)?i:-1).filter(i=>i>=0);
+    const mid = ids.find(i => times[i].endsWith("12:00")) ?? ids[Math.floor(ids.length/2)];
+    const lead = Math.max(0, mid-nowIdx);
+    const per = {}; const TX=[], TN=[], PS=[], GX=[]; let rainW=0, stormW=0, wsum=0;
+    for(const m of active){
+      const s = series[m.id]; const tv = ids.map(i=>s.t[i]).filter(v=>v!=null);
+      if(tv.length < 20) continue;
+      const w = wOf(m, lead);
+      const ps = ids.reduce((a,i)=>a+(s.p[i]??0),0);
+      const gs = ids.map(i=>s.wg[i]).filter(v=>v!=null);
+      const st = ids.some(i => (s.wc[i]??0) >= 95);
+      per[m.id] = {tmax:Math.max(...tv), tmin:Math.min(...tv), psum:ps, gmax:gs.length?Math.max(...gs):null, storm:st, w};
+      if(w<=0) continue;
+      TX.push([per[m.id].tmax,w]); TN.push([per[m.id].tmin,w]); PS.push([ps,w]);
+      if(per[m.id].gmax!=null) GX.push([per[m.id].gmax,w]);
+      wsum += w; if(ps >= 1) rainW += w; if(st) stormW += w;
+    }
+    if(!wsum) continue;
+    const used = Object.values(per).filter(x=>x.w>0);
+    const spread = Math.max(...used.map(x=>x.tmax)) - Math.min(...used.map(x=>x.tmax));
+    const prob = rainW/wsum, stormF = stormW/wsum;
+    const dayCloud = wavg(ids.filter(i=>{const h=+times[i].slice(11,13); return h>=8 && h<=18;}).map(i=>[H[i].cloud??0,1]));
+    const tmax = wavg(TX), tmin = wavg(TN), psum = wavg(PS);
+    let agree = "bassa";
+    const rainClear = prob <= 0.2 || prob >= 0.8, rainMid = prob < 0.35 || prob > 0.65;
+    if(spread <= 2 && rainClear) agree = "alta"; else if(spread <= 4 && rainMid) agree = "media";
+    days.push({date:d, ids, per, tmax, tmin, psum, prob, storm:stormF, gmax:wavg(GX), spread, cloud:dayCloud, agree, n:used.length,
+      kind:kindOf({cloud:dayCloud, p:psum, wet:prob, storm:stormF, t:tmax, day:true, daily:true})});
+  }
+  return {times, H, days, nowIdx, active, failed: MODELS.filter(m=>!series[m.id]),
+    fetched:new Date(Math.min(...ok.map(x=>x.cachedAt||Date.now()))), offline:ok.some(x=>x.cachedAt)};
+}
+
+function kindOf({cloud, p, wet, storm, t, day, daily}){
+  const rainMin = daily ? 1 : 0.2;
+  if(storm >= 0.4 && wet >= 0.4) return "storm";
+  if(wet >= 0.5 && p >= rainMin) return (t != null && t <= 1.5) ? "snow" : "rain";
+  if(wet >= 0.3) return "showers";
+  const c = cloud ?? 0;
+  if(c > 75) return "cloud";
+  if(c > 35) return day ? "partly" : "cloud";
+  return day ? "sun" : "moon";
+}
+function hourKind(h){
+  const hr = +h.time.slice(11,13);
+  return kindOf({cloud:h.cloud, p:h.p, wet:h.pwet, storm:h.storm, t:h.t, day:hr>=7 && hr<18});
+}
+const AGREE_TXT = {alta:"Alta", media:"Media", bassa:"Bassa"};
+function agreeSentence(d){
+  const rain = d.prob >= 0.8 ? "tutti o quasi vedono pioggia" : d.prob <= 0.2 ? "tutti o quasi escludono la pioggia" : "sono divisi sulla pioggia";
+  return "Scarto di "+n1(d.spread)+"° tra le massime dei modelli; "+rain+".";
+}
+function windDir(d){
+  if(d==null) return "";
+  return ["N","NE","E","SE","S","SO","O","NO"][Math.round(d/45)%8];
+}
+function dayName(date, i){
+  if(i===0) return "Oggi"; if(i===1) return "Domani";
+  const dt = new Date(date+"T12:00:00"); return DOW[dt.getDay()];
+}
+function dayFull(date){
+  const dt = new Date(date+"T12:00:00");
+  return ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"][dt.getDay()]+" "+dt.getDate()+" "+MON[dt.getMonth()];
+}
+
+/* ---------- rendering ---------- */
+function renderAll(){
+  const D = state.data, p = state.place;
+  $("pname").textContent = p.name;
+  $("pmeta").textContent = [p.prov ? (/^(provincia|città)/i.test(p.prov) ? p.prov : "Provincia di "+p.prov) : "", p.elev!=null ? Math.round(p.elev)+" m s.l.m." : ""].filter(Boolean).join(" · ");
+  if(!D) return;
+  const h = D.H[D.nowIdx];
+  const k = hourKind(h);
+  setIcon($("nic"), k);
+  $("nt").textContent = h.t!=null ? deg(h.t) : "--°";
+  $("ncond").textContent = LABEL[k];
+  $("nrange").textContent = h.n>1 ? "I modelli dicono tra "+deg(h.tmin)+" e "+deg(h.tmax) : "";
+  const next = D.H.slice(D.nowIdx, D.nowIdx+6);
+  const r6 = next.reduce((a,x)=>a+x.p,0), w6 = Math.max(...next.map(x=>x.pwet));
+  $("nrain").textContent = r6 < 0.1 && w6 < 0.3 ? "Nessuna" : n1(r6)+" mm · "+Math.round(w6*100)+"%";
+  $("nwind").textContent = h.ws!=null ? Math.round(h.ws)+" km/h "+windDir(h.wd) : "–";
+  $("ngust").textContent = h.wg!=null ? Math.round(h.wg)+" km/h" : "–";
+  const today = D.days[0];
+  $("nagree").innerHTML = today ? '<span class="pill a-'+today.agree+'">'+AGREE_TXT[today.agree]+'</span>' : "";
+  const hhmm = D.fetched.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+  let st = (D.offline ? "Sei offline: previsioni del "+D.fetched.toLocaleDateString("it-IT",{day:"numeric",month:"short"})+" alle "+hhmm : "Aggiornato alle "+hhmm)+" · "+D.active.length+" modelli su "+MODELS.length+" disponibili";
+  if(D.failed.length) st += " (non rispondono: "+D.failed.map(m=>m.name).join(", ")+")";
+  $("status").textContent = st;
+
+  $("days").innerHTML = D.days.map((d,i)=>
+    '<button class="day" type="button" data-i="'+i+'" aria-pressed="'+(i===state.day)+'">'+
+      '<span class="dn">'+dayName(d.date,i)+'</span><span class="dd">'+new Date(d.date+"T12:00:00").getDate()+" "+MON[+d.date.slice(5,7)-1]+'</span>'+
+      iconHTML(d.kind)+
+      '<span class="tt num"><b>'+deg(d.tmax)+'</b> / '+deg(d.tmin)+'</span>'+
+      '<span class="rp num">'+(d.prob < 0.1 ? "&nbsp;" : Math.round(d.prob*100)+'%<span class="no-sm"> ·</span> <span>'+n1(d.psum)+" mm</span>")+'</span>'+
+      '<span class="dot a-'+d.agree+'" title="Concordanza '+AGREE_TXT[d.agree].toLowerCase()+'"></span>'+
+    '</button>').join("");
+  renderDay();
+}
+
+function renderDay(){
+  const D = state.data; const d = D.days[state.day]; if(!d) return;
+  $("dtitle").textContent = (state.day===0?"Oggi, ":state.day===1?"Domani, ":"")+dayFull(d.date);
+  $("dsub").innerHTML = LABEL[d.kind]+" · concordanza <span class=\"a-"+d.agree+"\" style=\"font-weight:700\">"+AGREE_TXT[d.agree].toLowerCase()+"</span>. "+agreeSentence(d);
+  renderLegend(d); renderChart(d); renderTable(d);
+  $("readout").textContent = "Tocca il grafico per leggere i valori di un'ora.";
+}
+
+function renderLegend(d){
+  const ms = D_active().filter(m => d.ids.some(i => state.data.H[i].vals[m.id]!=null));
+  $("legend").innerHTML = '<button type="button" class="cons" tabindex="-1"><i style="background:var(--ink);height:4px"></i>Consenso</button>' +
+    ms.map(m => '<button type="button" data-m="'+m.id+'" aria-pressed="'+!state.hidden.has(m.id)+'"><i style="background:'+m.color+'"></i>'+m.name+'</button>').join("");
+}
+const D_active = () => state.data.active;
+
+const PHONE = matchMedia("(max-width:640px)");
+PHONE.addEventListener("change", () => { if(state.data) renderDay(); });
+
+function renderChart(d){
+  const svg = $("chart"), H = state.data.H;
+  const W=PHONE.matches?380:720, L=40, R=12, T=14, TB=180, RT=204, RB=258, XL=276;
+  svg.setAttribute("viewBox","0 0 "+W+" 284");
+  const pts = d.ids.map(i=>H[i]);
+  const n = pts.length; const x = j => L + j*(W-L-R)/Math.max(1,n-1);
+  let lo = Math.min(...pts.map(h=>h.tmin).filter(v=>v!=null)), hi = Math.max(...pts.map(h=>h.tmax).filter(v=>v!=null));
+  const step = (hi-lo) > 12 ? 4 : 2;
+  lo = Math.floor((lo-1)/step)*step; hi = Math.ceil((hi+1)/step)*step;
+  const y = v => TB - (v-lo)/(hi-lo)*(TB-T);
+  let s = "";
+  for(let v=lo; v<=hi; v+=step){
+    s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(v)+'" y2="'+y(v)+'" stroke="var(--line)" stroke-width="1"/>';
+    s += '<text x="'+(L-6)+'" y="'+(y(v)+4)+'" text-anchor="end" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+v+'°</text>';
+  }
+  // fascia min-max
+  const top = pts.map((h,j)=>h.tmax!=null?[x(j),y(h.tmax)]:null).filter(Boolean);
+  const bot = pts.map((h,j)=>h.tmin!=null?[x(j),y(h.tmin)]:null).filter(Boolean).reverse();
+  s += '<polygon points="'+top.concat(bot).map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")+'" fill="var(--sea)" fill-opacity="0.14" stroke="none"/>';
+  // linee modelli
+  for(const m of D_active()){
+    if(state.hidden.has(m.id)) continue;
+    let path = "", pen = false;
+    pts.forEach((h,j)=>{ const v=h.vals[m.id]; if(v==null){pen=false;return;} path += (pen?"L":"M")+x(j).toFixed(1)+" "+y(v).toFixed(1); pen=true; });
+    if(path) s += '<path d="'+path+'" fill="none" stroke="'+m.color+'" stroke-width="1.3" stroke-opacity="0.9"/>';
+  }
+  // consenso
+  let cp=""; pts.forEach((h,j)=>{ if(h.t!=null) cp += (cp?"L":"M")+x(j).toFixed(1)+" "+y(h.t).toFixed(1); });
+  s += '<path d="'+cp+'" fill="none" stroke="var(--ink)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  // pioggia
+  const pmax = Math.max(2, ...pts.map(h=>h.p));
+  const bw = Math.max(4, (W-L-R)/n*0.62);
+  s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+RB+'" y2="'+RB+'" stroke="var(--line)"/>';
+  s += '<text x="'+(L-6)+'" y="'+(RT+8)+'" text-anchor="end" font-size="10" fill="var(--rain)" font-family="var(--mono)">'+n1(pmax)+'</text>';
+  s += '<text x="'+(L-6)+'" y="'+(RB)+'" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--mono)">mm</text>';
+  pts.forEach((h,j)=>{ if(h.p<0.05) return; const hgt = h.p/pmax*(RB-RT); s += '<rect x="'+(x(j)-bw/2).toFixed(1)+'" y="'+(RB-hgt).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hgt.toFixed(1)+'" rx="1.5" fill="var(--rain)" fill-opacity="'+(0.35+0.65*h.pwet).toFixed(2)+'"/>'; });
+  // asse ore
+  pts.forEach((h,j)=>{ const hr=+h.time.slice(11,13); if(hr%3) return; s += '<text x="'+x(j)+'" y="'+XL+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+String(hr).padStart(2,"0")+'</text>'; });
+  // adesso
+  const nowJ = d.ids.indexOf(state.data.nowIdx);
+  if(nowJ>=0) s += '<line x1="'+x(nowJ)+'" x2="'+x(nowJ)+'" y1="'+T+'" y2="'+RB+'" stroke="var(--sea)" stroke-dasharray="3 3"/><text x="'+(x(nowJ)+4)+'" y="'+(T+10)+'" font-size="11" fill="var(--sea)" font-family="var(--body)" font-weight="700">adesso</text>';
+  s += '<line id="cursor" x1="0" x2="0" y1="'+T+'" y2="'+RB+'" stroke="var(--ink)" stroke-opacity="0.35" visibility="hidden"/>';
+  // area interattiva: l'ora si ricava dalla x, perché col touch e.target resta quello del primo tocco
+  s += '<rect x="0" y="0" width="'+W+'" height="'+RB+'" fill="transparent"/>';
+  svg.innerHTML = s;
+  svg.onpointermove = svg.onclick = e => {
+    const b = svg.getBoundingClientRect();
+    const j = Math.max(0, Math.min(n-1, Math.round(((e.clientX-b.left)/b.width*W-L)/(W-L-R)*(n-1))));
+    const h = pts[j]; const c = svg.querySelector("#cursor");
+    c.setAttribute("x1",x(j)); c.setAttribute("x2",x(j)); c.setAttribute("visibility","visible");
+    $("readout").textContent = "Ore "+h.time.slice(11,16)+" · "+(h.t!=null?n1(h.t)+"°":"–")+(h.n>1?" (modelli "+n1(h.tmin)+"–"+n1(h.tmax)+"°)":"")+
+      " · pioggia "+n1(h.p)+" mm"+(h.pwet>=0.1?" ("+Math.round(h.pwet*100)+"% dei modelli)":"")+
+      " · vento "+(h.ws!=null?Math.round(h.ws):"–")+" km/h "+windDir(h.wd)+(h.wg!=null?", raffiche "+Math.round(h.wg):"");
+  };
+}
+
+function renderTable(d){
+  const head = '<thead><tr><th>Modello</th><th class="no-sm">Maglia</th><th>Max</th><th>Min</th><th>Pioggia<span class="only-sm"> mm</span></th><th>Raffiche<span class="only-sm"> km/h</span></th><th class="no-sm">Peso</th></tr></thead>';
+  const rows = MODELS.map(m => {
+    const x = d.per[m.id];
+    const name = '<td><span class="sw" style="background:'+m.color+'"></span>'+m.name+'<span class="ente">'+m.ente+'</span></td>';
+    if(!state.data.active.includes(m)) return "<tr>"+name+'<td class="na" colspan="6">non ha risposto</td></tr>';
+    if(!x) return "<tr>"+name+'<td class="no-sm">'+m.res+'</td><td class="na" colspan="5">non copre questo giorno</td></tr>';
+    return "<tr>"+name+'<td class="no-sm">'+m.res+'</td><td class="num">'+n1(x.tmax)+'°</td><td class="num">'+n1(x.tmin)+'°</td><td class="num">'+n1(x.psum)+'<span class="no-sm"> mm</span>'+(x.storm?' ⚡':'')+'</td><td class="num">'+(x.gmax!=null?Math.round(x.gmax)+'<span class="no-sm"> km/h</span>':"–")+'</td><td class="num no-sm">'+(x.w>0?n1(x.w):"escluso")+"</td></tr>";
+  }).join("");
+  const cons = '<tr class="cons"><td>Consenso</td><td class="no-sm"></td><td class="num">'+n1(d.tmax)+'°</td><td class="num">'+n1(d.tmin)+'°</td><td class="num">'+n1(d.psum)+'<span class="no-sm"> mm · '+Math.round(d.prob*100)+'%</span></td><td class="num">'+(d.gmax!=null?Math.round(d.gmax)+'<span class="no-sm"> km/h</span>':"–")+'</td><td class="num no-sm">'+d.n+' modelli</td></tr>';
+  $("tbl").innerHTML = head+"<tbody>"+rows+cons+"</tbody>";
+  $("tsub").innerHTML = "Valori di "+dayFull(d.date)+". ⚡ = il modello prevede temporali.<span class=\"no-sm\"> Peso 'escluso': oltre i 3 giorni ICON-2I non ha dati.</span>";
+}
+
+/* ---------- flusso ---------- */
+function showErr(msg){ const e=$("err"); if(!msg){e.hidden=true;return;} e.innerHTML=msg; e.hidden=false; }
+
+async function load(place){
+  if(state.busy) return; state.busy = true;
+  state.place = place; state.day = 0;
+  try{ localStorage.setItem(STORE, JSON.stringify(place)); }catch(e){}
+  renderQuick();
+  document.body.classList.add("loading"); $("refresh").textContent = "Aggiorno…";
+  showErr(null);
+  const raw = await Promise.all(MODELS.map(m => getJSON(modelURL(m,place))
+    .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt}))
+    .catch(e => ({m, h:null, err:e.message}))));
+  const D = build(raw);
+  state.busy = false;
+  document.body.classList.remove("loading"); $("refresh").textContent = "Aggiorna";
+  if(!D){
+    const det = raw.map(x => x.m.name+": "+(x.err || "dati vuoti")).join(" · ");
+    showErr("<b>Non riesco a scaricare le previsioni.</b> Controlla la connessione a internet e premi Aggiorna.<br><small style=\"color:var(--muted)\">Dettaglio tecnico: "+det.replace(/</g,"&lt;")+"</small>");
+    $("status").textContent = "Nessun dato ricevuto.";
+    state.data = null; renderAll(); return;
+  }
+  state.data = D; renderAll();
+}
+
+function renderQuick(){
+  $("quick").innerHTML = QUICK.map(q => '<button type="button" data-q="'+q+'" aria-pressed="'+(state.place && state.place.name===q)+'">'+q+'</button>').join("");
+}
+
+let tmr = null, seq = 0;
+$("q").addEventListener("input", e => {
+  clearTimeout(tmr); const v = e.target.value.trim();
+  if(v.length < 2){ $("results").hidden = true; return; }
+  tmr = setTimeout(async () => {
+    const my = ++seq; let list = [];
+    try{ list = await geocode(v); }catch(err){ list = null; }
+    if(my !== seq) return;
+    const box = $("results");
+    if(list === null) box.innerHTML = '<div class="empty">Ricerca non disponibile: controlla la connessione.</div>';
+    else if(!list.length) box.innerHTML = '<div class="empty">Nessun comune calabrese con questo nome.</div>';
+    else box.innerHTML = list.map((r,i)=>'<button type="button" data-r="'+i+'">'+esc(r.name)+' <small>'+(r.prov?esc(r.prov)+" · ":"")+(r.elev!=null?Math.round(r.elev)+" m":"")+'</small></button>').join("");
+    box._list = list; box.hidden = false;
+  }, 300);
+});
+$("results").addEventListener("click", e => {
+  const b = e.target.closest("button[data-r]"); if(!b) return;
+  const r = $("results")._list[+b.dataset.r];
+  $("results").hidden = true; $("q").value = ""; load(r);
+});
+document.addEventListener("click", e => { if(!e.target.closest(".search")) $("results").hidden = true; });
+$("quick").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-q]"); if(!b) return;
+  try{ const r = await geocode(b.dataset.q); const best = r.find(x=>x.name.toLowerCase()===b.dataset.q.toLowerCase()) || r[0];
+    if(best) load(best); else showErr("<b>Comune non trovato.</b> Prova a cercarlo per nome.");
+  }catch(err){ showErr("<b>Ricerca non disponibile.</b> Controlla la connessione e riprova."); }
+});
+$("days").addEventListener("click", e => {
+  const b = e.target.closest("button.day"); if(!b) return;
+  state.day = +b.dataset.i;
+  document.querySelectorAll(".day").forEach(x => x.setAttribute("aria-pressed", String(x===b)));
+  renderDay();
+});
+$("legend").addEventListener("click", e => {
+  const b = e.target.closest("button[data-m]"); if(!b) return;
+  const id = b.dataset.m; state.hidden.has(id) ? state.hidden.delete(id) : state.hidden.add(id);
+  renderDay();
+});
+$("refresh").addEventListener("click", () => state.place && load(state.place));
+document.addEventListener("visibilitychange", () => {
+  if(document.visibilityState==="visible" && state.data && Date.now()-state.data.fetched > 30*60*1000) load(state.place);
+});
+
+(async function init(){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(STORE)||"null"); }catch(e){}
+  if(saved && typeof saved.lat === "number"){ load(saved); return; }
+  let place = DEFAULT_PLACE;
+  try{ const r = await geocode(DEFAULT_PLACE.name); const best = r.find(x=>x.name===DEFAULT_PLACE.name) || r[0]; if(best) place = best; }catch(e){}
+  load(place);
+})();
+
+if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.error("Service worker non registrato:", e));
+</script>
+</body>
+</html>
