@@ -6,4 +6,6 @@ Comuni preferiti (salvati sul dispositivo), previsione per la posizione GPS ("Vi
 
 Per le allerte ufficiali fa fede il [Centro Funzionale Multirischi ARPACAL](https://www.cfd.calabria.it). Dati: [Open-Meteo.com](https://open-meteo.com) (CC BY 4.0).
 
+L'elenco dei 404 comuni (`comuni.js`) viene dal [database comuni italiani di Garda Informatica](https://www.gardainformatica.it/database-comuni-italiani) (MIT, dati ISTAT) e si rigenera con `scripts/genera-comuni.py`: istruzioni in testa allo script.
+
 Prova offline: `zsh check-offline.sh` (richiede Chrome).

@@ -282,10 +282,11 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   <section class="note">
     <p><b>Come funziona.</b> Per ogni ora la pagina scarica le previsioni di sette modelli e ne fa una media pesata. Nei primi tre giorni pesa di più ICON-2I di ItaliaMeteo, che ha una maglia di circa 2 km e "vede" Sila, Pollino e Aspromonte meglio dei modelli globali; dal quarto giorno il peso passa soprattutto a ECMWF. La fascia colorata nel grafico è la distanza tra il modello più freddo e quello più caldo: se è stretta i modelli sono d'accordo, se è larga la previsione è incerta.</p>
     <p><b>Probabilità di pioggia</b> = quota pesata di modelli che prevedono almeno 1 mm nella giornata. Le temperature sono già corrette per la quota reale del comune.</p>
-    <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA.</p>
+    <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA. Elenco dei comuni: <a href="https://www.gardainformatica.it/database-comuni-italiani" target="_blank" rel="noopener">Garda Informatica</a> (MIT), da dati ISTAT.</p>
   </section>
 </div>
 
+<script src="comuni.js"></script>
 <script>
 "use strict";
 const MODELS = [
@@ -302,7 +303,7 @@ const QUICK = ["Cosenza","Catanzaro","Reggio Calabria","Crotone","Vibo Valentia"
 const DEFAULT_PLACE = {name:"Santa Domenica Talao", lat:39.8186, lon:15.8536, elev:null, prov:"Cosenza"};
 const STORE = "meteoCalabria.place";
 const FAVS = "meteoCalabria.favs";
-const CALABRIA = {s:37.85, n:40.2, w:15.55, e:17.3}; // riquadro approssimato, per dire "sei fuori" a chi usa il GPS
+const GPS_MAX_KM = 12; // oltre questa distanza dal comune calabrese più vicino si è fuori regione (o in mare)
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/></svg>';
 const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></g></svg>';
 const WARN = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></g></svg>';
@@ -357,6 +358,29 @@ async function geocode(name){
   return (j.results||[]).filter(r => /calabria/i.test(r.admin1||""))
     .map(r => ({name:r.name, lat:r.latitude, lon:r.longitude, elev:r.elevation ?? null, prov:r.admin2||""}));
 }
+/* ---------- comuni (elenco locale, funziona offline) ---------- */
+const norm = s => String(s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/['’`\-]/g," ").replace(/\s+/g," ").trim();
+const IDX = COMUNI.map(c => ({c, k: norm(c[0]) + (c[0]==="Reggio di Calabria" ? " | reggio calabria" : "")}));
+const fromComune = c => ({name:c[0], lat:c[2], lon:c[3], elev:null, prov:PROVINCE[c[1]]});
+function searchLocal(q, max = 8){
+  q = norm(q); if(!q) return [];
+  const score = k => k.startsWith(q) ? 0 : (" "+k).includes(" "+q) ? 1 : k.includes(q) ? 2 : -1;
+  return IDX.map(x => ({c:x.c, s:score(x.k)})).filter(x => x.s >= 0)
+    .sort((a,b) => a.s-b.s || a.c[0].length-b.c[0].length || a.c[0].localeCompare(b.c[0],"it")).slice(0,max).map(x => x.c);
+}
+function findLocal(name){ const q = norm(name); const x = IDX.find(x => x.k.split(" | ").includes(q)); return x ? x.c : null; }
+function km(aLat, aLon, bLat, bLon){
+  const r = Math.PI/180, dLat = (bLat-aLat)*r, dLon = (bLon-aLon)*r;
+  const h = Math.sin(dLat/2)**2 + Math.cos(aLat*r)*Math.cos(bLat*r)*Math.sin(dLon/2)**2;
+  return 12742*Math.asin(Math.sqrt(h));
+}
+function nearest(lat, lon){
+  let best = null;
+  for(const c of COMUNI){ const d = km(lat, lon, c[2], c[3]); if(!best || d < best.d) best = {c, d}; }
+  return best;
+}
+const provShort = p => (p||"").replace(/^(provincia|città metropolitana) di /i, "");
+
 function modelURL(m, p){
   return "https://api.open-meteo.com/v1/forecast?latitude="+p.lat.toFixed(4)+"&longitude="+p.lon.toFixed(4)+
     "&hourly="+VARS+"&models="+m.id+"&forecast_days=7&timezone=Europe%2FRome&wind_speed_unit=kmh";
@@ -480,7 +504,7 @@ function renderAll(){
   if(!D) $("alerts").hidden = true;
   $("pname").textContent = p.name;
   renderFavBtn();
-  $("pmeta").textContent = [p.gps ? "Dal GPS del dispositivo" : "", p.prov ? (/^(provincia|città)/i.test(p.prov) ? p.prov : "Provincia di "+p.prov) : "", p.elev!=null ? Math.round(p.elev)+" m s.l.m." : ""].filter(Boolean).join(" · ");
+  $("pmeta").textContent = [p.gps ? "Posizione GPS"+(p.dist >= 1 ? ", a "+Math.round(p.dist)+" km dal centro" : "") : "", p.prov ? (/^(provincia|città)/i.test(p.prov) ? p.prov : "Provincia di "+p.prov) : "", p.elev!=null ? Math.round(p.elev)+" m s.l.m." : ""].filter(Boolean).join(" · ");
   if(!D) return;
   const h = D.H[D.nowIdx];
   const k = hourKind(h);
@@ -667,12 +691,13 @@ function renderFavBtn(){
   const t = on ? "Togli dai preferiti" : "Aggiungi ai preferiti";
   b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", t); b.title = t;
 }
+const quickName = q => (findLocal(q) || [q])[0]; // "Reggio Calabria" è il comune "Reggio di Calabria"
 function renderQuick(){
   const favs = getFavs(), cur = state.place;
   $("quick").innerHTML =
     '<button type="button" class="gps" data-gps aria-pressed="'+!!(cur && cur.gps)+'">'+PIN+'Vicino a me</button>'+
     favs.map((f,i) => '<button type="button" class="fv" data-f="'+i+'" aria-pressed="'+samePlace(f,cur)+'" title="Preferito">'+STAR+esc(f.name)+'</button>').join("")+
-    QUICK.filter(q => !favs.some(f => f.name===q)).map(q => '<button type="button" data-q="'+q+'" aria-pressed="'+!!(cur && !cur.gps && cur.name===q)+'">'+q+'</button>').join("");
+    QUICK.filter(q => !favs.some(f => f.name===quickName(q))).map(q => '<button type="button" data-q="'+q+'" aria-pressed="'+!!(cur && !cur.gps && cur.name===quickName(q))+'">'+q+'</button>').join("");
 }
 
 function locate(btn){
@@ -680,10 +705,12 @@ function locate(btn){
   btn.classList.add("busy"); btn.lastChild.textContent = "Cerco…";
   navigator.geolocation.getCurrentPosition(pos => {
     const lat = pos.coords.latitude, lon = pos.coords.longitude;
-    if(lat < CALABRIA.s || lat > CALABRIA.n || lon < CALABRIA.w || lon > CALABRIA.e){
+    const near = nearest(lat, lon);
+    if(near.d > GPS_MAX_KM){
       renderQuick(); showErr("<b>Sei fuori dalla Calabria.</b> Meteo Calabria copre solo i comuni calabresi: cercane uno per nome."); return;
     }
-    load({name:"La tua posizione", lat, lon, elev:null, prov:"", gps:true});
+    // previsione sulle coordinate reali, nome del comune più vicino
+    load({name:near.c[0], lat, lon, elev:null, prov:PROVINCE[near.c[1]], gps:true, dist:near.d});
   }, err => {
     renderQuick();
     showErr(err.code === 1 ? "<b>Accesso alla posizione negato.</b> Per usare “Vicino a me” consentilo nelle impostazioni del browser."
@@ -691,20 +718,35 @@ function locate(btn){
   }, {timeout:15000, maximumAge:10*60*1000});
 }
 
+// Prima l'elenco locale, subito; poi la ricerca online aggiunge frazioni e località (Camigliatello, Gambarie, Capo Vaticano…).
 let tmr = null, seq = 0;
+function showResults(list, phase){
+  const box = $("results");
+  if(list.length) box.innerHTML = list.map((r,i) => '<button type="button" data-r="'+i+'">'+esc(r.name)+' <small>'+
+    esc([r.loc ? "località" : "", provShort(r.prov), r.elev!=null ? Math.round(r.elev)+" m" : ""].filter(Boolean).join(" · "))+'</small></button>').join("");
+  else box.innerHTML = '<div class="empty">'+({wait:"Cerco anche tra frazioni e località…",
+    offline:"Nessun comune con questo nome. Frazioni e località si cercano solo online.",
+    done:"Nessun comune o località calabrese con questo nome."}[phase])+'</div>';
+  box._list = list; box.hidden = false;
+}
 $("q").addEventListener("input", e => {
-  clearTimeout(tmr); const v = e.target.value.trim();
+  clearTimeout(tmr); const my = ++seq; const v = e.target.value.trim();
   if(v.length < 2){ $("results").hidden = true; return; }
+  const local = searchLocal(v).map(fromComune);
+  if(v.length < 3){ showResults(local, "done"); return; }
+  showResults(local, "wait");
   tmr = setTimeout(async () => {
-    const my = ++seq; let list = [];
-    try{ list = await geocode(v); }catch(err){ list = null; }
+    let online = null;
+    try{ online = await geocode(v); }catch(err){}
     if(my !== seq) return;
-    const box = $("results");
-    if(list === null) box.innerHTML = '<div class="empty">Ricerca non disponibile: controlla la connessione.</div>';
-    else if(!list.length) box.innerHTML = '<div class="empty">Nessun comune calabrese con questo nome.</div>';
-    else box.innerHTML = list.map((r,i)=>'<button type="button" data-r="'+i+'">'+esc(r.name)+' <small>'+(r.prov?esc(r.prov)+" · ":"")+(r.elev!=null?Math.round(r.elev)+" m":"")+'</small></button>').join("");
-    box._list = list; box.hidden = false;
-  }, 300);
+    const extra = (online || []).filter(r => !local.some(l => norm(l.name)===norm(r.name) || km(l.lat,l.lon,r.lat,r.lon) < 1.5) && !findLocal(r.name))
+      .slice(0, 5).map(r => ({...r, loc:true}));
+    showResults(local.concat(extra), online === null ? "offline" : "done");
+  }, 350);
+});
+$("q").addEventListener("keydown", e => {
+  if(e.key !== "Enter") return;
+  const first = $("results").querySelector("button[data-r]"); if(first){ e.preventDefault(); first.click(); }
 });
 $("results").addEventListener("click", e => {
   const b = e.target.closest("button[data-r]"); if(!b) return;
@@ -717,6 +759,7 @@ $("quick").addEventListener("click", async e => {
   const g = e.target.closest("button[data-gps]"); if(g){ locate(g); return; }
   const f = e.target.closest("button[data-f]"); if(f){ const p = getFavs()[+f.dataset.f]; if(p) load(p); return; }
   const b = e.target.closest("button[data-q]"); if(!b) return;
+  const c = findLocal(b.dataset.q); if(c){ load(fromComune(c)); return; }
   try{ const r = await geocode(b.dataset.q); const best = r.find(x=>x.name.toLowerCase()===b.dataset.q.toLowerCase()) || r[0];
     if(best) load(best); else showErr("<b>Comune non trovato.</b> Prova a cercarlo per nome.");
   }catch(err){ showErr("<b>Ricerca non disponibile.</b> Controlla la connessione e riprova."); }
@@ -751,9 +794,8 @@ document.addEventListener("visibilitychange", () => {
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem(STORE)||"null"); }catch(e){}
   if(saved && typeof saved.lat === "number"){ load(saved); return; }
-  let place = DEFAULT_PLACE;
-  try{ const r = await geocode(DEFAULT_PLACE.name); const best = r.find(x=>x.name===DEFAULT_PLACE.name) || r[0]; if(best) place = best; }catch(e){}
-  load(place);
+  const c = findLocal(DEFAULT_PLACE.name);
+  load(c ? fromComune(c) : DEFAULT_PLACE);
 })();
 
 if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(e => console.error("Service worker non registrato:", e));
