@@ -1,0 +1,462 @@
+{
+"Acquappesa": [
+39.453,
+15.941
+],
+"Africo": [
+38.039,
+16.177
+],
+"Albidona": [
+39.886,
+16.598
+],
+"Amantea": [
+39.094,
+16.046
+],
+"Amendolara": [
+39.909,
+16.626
+],
+"Ardore": [
+38.156,
+16.234
+],
+"Badolato": [
+38.58,
+16.604
+],
+"Bagnara Calabra": [
+38.311,
+15.783
+],
+"Belcastro": [
+38.9,
+16.888
+],
+"Belmonte Calabro": [
+39.18,
+16.028
+],
+"Belvedere Marittimo": [
+39.607,
+15.82
+],
+"Bianco": [
+38.066,
+16.185
+],
+"Bonifati": [
+39.558,
+15.837
+],
+"Borgia": [
+38.772,
+16.615
+],
+"Botricello": [
+38.896,
+16.873
+],
+"Bova Marina": [
+37.902,
+15.926
+],
+"Bovalino": [
+38.124,
+16.198
+],
+"Brancaleone": [
+37.934,
+16.118
+],
+"Briatico": [
+38.75,
+16.004
+],
+"Bruzzano Zeffirio": [
+37.99,
+16.158
+],
+"Calopezzati": [
+39.583,
+16.856
+],
+"Camini": [
+38.386,
+16.573
+],
+"Cariati": [
+39.523,
+16.967
+],
+"Casignana": [
+38.109,
+16.193
+],
+"Cassano all'Ionio": [
+39.767,
+16.522
+],
+"Catanzaro": [
+38.801,
+16.639
+],
+"Caulonia": [
+38.305,
+16.454
+],
+"Cetraro": [
+39.503,
+15.903
+],
+"Cirò": [
+39.443,
+17.103
+],
+"Cirò Marina": [
+39.364,
+17.168
+],
+"Condofuri": [
+37.9,
+15.884
+],
+"Corigliano-Rossano": [
+39.668,
+16.578
+],
+"Cropani": [
+38.883,
+16.823
+],
+"Crosia": [
+39.625,
+16.814
+],
+"Crotone": [
+39.117,
+17.141
+],
+"Crucoli": [
+39.466,
+17.07
+],
+"Curinga": [
+38.84,
+16.185
+],
+"Cutro": [
+38.912,
+16.972
+],
+"Davoli": [
+38.655,
+16.591
+],
+"Diamante": [
+39.679,
+15.79
+],
+"Falconara Albanese": [
+39.276,
+16.02
+],
+"Falerna": [
+38.976,
+16.106
+],
+"Ferruzzano": [
+38.005,
+16.167
+],
+"Fiumefreddo Bruzio": [
+39.239,
+16.023
+],
+"Fuscaldo": [
+39.411,
+15.972
+],
+"Gioia Tauro": [
+38.452,
+15.86
+],
+"Gizzeria": [
+38.921,
+16.159
+],
+"Grisolia": [
+39.726,
+15.775
+],
+"Grotteria": [
+38.273,
+16.347
+],
+"Guardavalle": [
+38.514,
+16.61
+],
+"Guardia Piemontese": [
+39.444,
+15.954
+],
+"Isca sullo Ionio": [
+38.599,
+16.602
+],
+"Isola di Capo Rizzuto": [
+38.912,
+17.16
+],
+"Joppolo": [
+38.559,
+15.868
+],
+"Lamezia Terme": [
+38.908,
+16.188
+],
+"Locri": [
+38.205,
+16.283
+],
+"Longobardi": [
+39.193,
+16.028
+],
+"Mandatoriccio": [
+39.557,
+16.895
+],
+"Marina di Gioiosa Ionica": [
+38.278,
+16.354
+],
+"Melissa": [
+39.306,
+17.144
+],
+"Melito di Porto Salvo": [
+37.892,
+15.806
+],
+"Monasterace": [
+38.437,
+16.612
+],
+"Montauro": [
+38.717,
+16.576
+],
+"Montebello Jonico": [
+37.925,
+15.68
+],
+"Montegiordano": [
+40.043,
+16.633
+],
+"Montepaone": [
+38.715,
+16.57
+],
+"Motta San Giovanni": [
+37.965,
+15.628
+],
+"Nicotera": [
+38.534,
+15.9
+],
+"Nocera Terinese": [
+38.983,
+16.102
+],
+"Palizzi": [
+37.896,
+16.025
+],
+"Palmi": [
+38.39,
+15.827
+],
+"Paola": [
+39.341,
+16.003
+],
+"Parghelia": [
+38.712,
+15.909
+],
+"Pietrapaola": [
+39.573,
+16.867
+],
+"Pizzo": [
+38.774,
+16.16
+],
+"Portigliola": [
+38.187,
+16.264
+],
+"Praia a Mare": [
+39.888,
+15.745
+],
+"Reggio di Calabria": [
+38.132,
+15.62
+],
+"Riace": [
+38.373,
+16.559
+],
+"Ricadi": [
+38.663,
+15.809
+],
+"Rocca Imperiale": [
+40.071,
+16.639
+],
+"Roccella Ionica": [
+38.29,
+16.401
+],
+"Rosarno": [
+38.51,
+15.884
+],
+"Roseto Capo Spulico": [
+39.999,
+16.645
+],
+"San Ferdinando": [
+38.495,
+15.881
+],
+"San Lorenzo": [
+37.893,
+15.846
+],
+"San Lucido": [
+39.29,
+16.018
+],
+"San Nicola Arcella": [
+39.857,
+15.756
+],
+"San Sostene": [
+38.647,
+16.592
+],
+"Sangineto": [
+39.589,
+15.827
+],
+"Sant'Andrea Apostolo dello Ionio": [
+38.622,
+16.596
+],
+"Sant'Ilario dello Ionio": [
+38.176,
+16.253
+],
+"Santa Caterina dello Ionio": [
+38.535,
+16.607
+],
+"Santa Maria del Cedro": [
+39.739,
+15.771
+],
+"Satriano": [
+38.669,
+16.591
+],
+"Scala Coeli": [
+39.541,
+16.929
+],
+"Scalea": [
+39.797,
+15.755
+],
+"Scilla": [
+38.291,
+15.753
+],
+"Sellia Marina": [
+38.863,
+16.774
+],
+"Seminara": [
+38.35,
+15.798
+],
+"Siderno": [
+38.252,
+16.329
+],
+"Simeri Crichi": [
+38.836,
+16.718
+],
+"Soverato": [
+38.712,
+16.571
+],
+"Squillace": [
+38.764,
+16.604
+],
+"Stalettì": [
+38.734,
+16.589
+],
+"Stignano": [
+38.36,
+16.543
+],
+"Stilo": [
+38.409,
+16.597
+],
+"Strongoli": [
+39.259,
+17.141
+],
+"Tortora": [
+39.91,
+15.726
+],
+"Trebisacce": [
+39.852,
+16.564
+],
+"Tropea": [
+38.699,
+15.873
+],
+"Vibo Valentia": [
+38.74,
+16.1
+],
+"Villa San Giovanni": [
+38.261,
+15.641
+],
+"Villapiana": [
+39.806,
+16.528
+],
+"Zambrone": [
+38.716,
+15.933
+]
+}

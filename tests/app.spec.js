@@ -71,6 +71,59 @@ test("il grafico si legge da tastiera", async ({ page, api }) => {
   await expect(page.locator("#cursor")).toHaveAttribute("visibility", "visible");
 });
 
+test.describe("mare", () => {
+  test("un comune dell'interno non ha il mare e non lo chiede", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await expect(page.locator("#sea")).toBeHidden();
+    await expect(page.locator(".day .wv")).toHaveCount(0);
+    expect(api.marineCalls).toEqual([]);
+  });
+
+  test("un comune costiero mostra onde, stato del mare e acqua", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#quick button", { hasText: "Tropea" }).click();
+    await expect(page.locator("#pname")).toHaveText("Tropea");
+    const sea = page.locator("#sea");
+    await expect(sea).toBeVisible();
+    expect(api.marineCalls).toEqual([["38.699", "15.873"]]); // il punto in mare, non il paese
+    await expect(page.locator("#seatitle")).toHaveText("Mare, oggi");
+    await expect(page.locator("#seasub")).toContainText("Al largo di Tropea.");
+    await expect(page.locator("#sstate")).toHaveText("Poco mosso");
+    await expect(page.locator("#swave")).toHaveText("0,4 m");
+    await expect(page.locator("#sdir")).toHaveText("da NO · 6 s");
+    await expect(page.locator("#stemp")).toHaveText("19°");
+    await expect(page.locator(".day .wv")).toHaveCount(7);
+    await page.locator('.day[data-i="1"]').click();
+    await expect(page.locator("#seatitle")).toHaveText("Mare, domani");
+    await page.locator("#chart").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator("#readout")).toContainText("onde 0,4 m");
+  });
+
+  test("mare agitato negli avvisi", async ({ page, api }) => {
+    api.opt.waves = { 2: 3.1 };
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#quick button", { hasText: "Scalea" }).click();
+    await expect(page.locator("#alerts li")).toContainText("mare agitato, onde fino a 3,1 m");
+    await page.locator("#alerts li button").click();
+    await expect(page.locator("#sstate")).toHaveText("Agitato");
+  });
+
+  test("se il mare non risponde la previsione resta", async ({ page, api }) => {
+    api.marineDown = true;
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#quick button", { hasText: "Tropea" }).click();
+    await expect(page.locator("#pname")).toHaveText("Tropea");
+    await expect(page.locator("#status")).toContainText("7 modelli su 7");
+    await expect(page.locator("#sea")).toBeHidden();
+    await expect(page.locator(".day .wv")).toHaveCount(0);
+  });
+});
+
 test.describe("ricerca", () => {
   test("trova i comuni dall'elenco locale, anche senza accenti, e Invio apre il primo", async ({ page, api }) => {
     await page.goto("/");
@@ -180,6 +233,8 @@ test.describe("telefono", () => {
     api.opt.gustDays = [4];
     await page.goto("/");
     await ready(page);
+    await page.locator("#quick button", { hasText: "Tropea" }).click(); // con il riquadro del mare
+    await expect(page.locator("#sea")).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });

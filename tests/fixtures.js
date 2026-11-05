@@ -28,14 +28,36 @@ function forecast(url, opt) {
   return { utc_offset_seconds: OFFSET, elevation: opt.elevation ?? 320, hourly: h };
 }
 
+// Mare: onde di opt.waves[giorno] metri (0,4 se non indicato) nel pomeriggio, un po' meno il resto del giorno.
+function marine(opt) {
+  const start = Math.floor((Date.now() + OFFSET * 1000) / 864e5) * 864e5;
+  const h = { time: [], wave_height: [], wave_direction: [], wave_period: [], sea_surface_temperature: [] };
+  for (let i = 0; i < 24 * 7; i++) {
+    const day = Math.floor(i / 24), hr = i % 24, top = (opt.waves || {})[day] ?? 0.4;
+    h.time.push(new Date(start + i * 36e5).toISOString().slice(0, 13) + ":00");
+    h.wave_height.push(hr >= 12 && hr <= 18 ? top : Math.round(top * 80) / 100);
+    h.wave_direction.push(315);
+    h.wave_period.push(6);
+    h.sea_surface_temperature.push(19);
+  }
+  return { utc_offset_seconds: OFFSET, hourly: h };
+}
+
 exports.test = base.test.extend({
-  // api.opt: opzioni della previsione; api.forecastDown / api.geocodeDown: rete assente per quel servizio
+  // api.opt: opzioni di previsione e mare; api.forecastDown / geocodeDown / marineDown: rete assente per quel servizio
   api: async ({ context }, use) => {
-    const api = { opt: {}, places: [], forecastDown: false, geocodeDown: false, forecastCalls: 0, geocodeCalls: [] };
+    const api = { opt: {}, places: [], forecastDown: false, geocodeDown: false, marineDown: false,
+                  forecastCalls: 0, geocodeCalls: [], marineCalls: [] };
     await context.route("https://api.open-meteo.com/**", route => {
       if (api.forecastDown) return route.abort();
       api.forecastCalls++;
       return route.fulfill({ json: forecast(route.request().url(), api.opt) });
+    });
+    await context.route("https://marine-api.open-meteo.com/**", route => {
+      const u = new URL(route.request().url());
+      api.marineCalls.push([u.searchParams.get("latitude"), u.searchParams.get("longitude")]);
+      if (api.marineDown) return route.abort();
+      return route.fulfill({ json: marine(api.opt) });
     });
     await context.route("https://geocoding-api.open-meteo.com/**", route => {
       api.geocodeCalls.push(new URL(route.request().url()).searchParams.get("name"));
