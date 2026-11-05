@@ -32,7 +32,7 @@ test("la cache tiene solo i 10 luoghi più recenti e niente di più vecchio di 2
     for (const m of ["gfs_global", "ecmwf_ifs", "icon_eu"]) await put("39.1100", m, now - 1000);
     await put("40.0000", "icon_eu", now - 2 * 864e5);
   });
-  await page.reload(); // nuova visita: 7 voci per il comune predefinito, poi la pulizia
+  await page.reload(); // nuova visita: 8 voci per il comune predefinito (7 modelli + UV), poi la pulizia
   await ready(page);
   const places = () => page.evaluate(async () => {
     const keys = await (await caches.open("meteo-forecast-v1")).keys();
@@ -43,7 +43,7 @@ test("la cache tiene solo i 10 luoghi più recenti e niente di più vecchio di 2
   expect(left).not.toContain("40.0000");                         // oltre 24 ore
   expect(left).not.toContain("38.0000");                         // il più vecchio dei recenti
   expect(left.filter(l => l === "39.1100")).toHaveLength(3);     // un luogo resta intero
-  expect(left.filter(l => l === "39.8193")).toHaveLength(7);     // il comune appena visto
+  expect(left.filter(l => l === "39.8193")).toHaveLength(8);     // il comune appena visto: 7 modelli + UV
 });
 
 test("se il server ha una versione nuova compare l'avviso, e Ricarica la carica", async ({ page, context, api }) => {

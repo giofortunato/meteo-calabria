@@ -2,7 +2,7 @@
 
 PWA che confronta sette modelli meteorologici per ogni comune calabrese e ne mostra il consenso. Nessuna build: file statici su GitHub Pages.
 
-Comuni preferiti (salvati sul dispositivo), previsione per la posizione GPS ("Vicino a me") e avvisi quando i modelli vedono temporali, raffiche oltre 60 km/h, più di 30 mm di pioggia in un giorno o mare agitato. Per i comuni sul mare: onde, stato del mare (scala Douglas) e temperatura dell'acqua da Open-Meteo Marine.
+Comuni preferiti (salvati sul dispositivo), previsione per la posizione GPS ("Vicino a me"), alba, tramonto e indice UV massimo (categorie OMS) e avvisi quando i modelli vedono temporali, raffiche oltre 60 km/h, più di 30 mm di pioggia in un giorno o mare agitato. Per i comuni sul mare: onde, stato del mare (scala Douglas) e temperatura dell'acqua da Open-Meteo Marine.
 
 Per le allerte ufficiali fa fede il [Centro Funzionale Multirischi ARPACAL](https://www.cfd.calabria.it). Dati: [Open-Meteo.com](https://open-meteo.com) (CC BY 4.0).
 
