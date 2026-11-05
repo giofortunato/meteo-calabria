@@ -1,14 +1,16 @@
 "use strict";
-const SHELL = "meteo-shell-v1";
+const SHELL = "meteo-shell-v2";
 const FORECAST = "meteo-forecast-v1";
 const FONTS = "meteo-fonts-v1";
-const SHELL_FILES = ["./", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
+const SHELL_FILES = ["./", "comuni.js", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 const MAX_AGE = 24*60*60*1000; // oltre, una previsione offline è troppo vecchia per mostrarla
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(SHELL_FILES)).then(() => self.skipWaiting()));
 });
-self.addEventListener("activate", e => e.waitUntil(self.clients.claim()));
+self.addEventListener("activate", e => e.waitUntil(
+  caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("meteo-shell-") && k !== SHELL).map(k => caches.delete(k))))
+    .then(() => self.clients.claim())));
 
 self.addEventListener("fetch", e => {
   if(e.request.method !== "GET") return;
@@ -16,7 +18,7 @@ self.addEventListener("fetch", e => {
   if(url.hostname === "api.open-meteo.com") e.respondWith(forecast(e.request));
   else if(url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com") e.respondWith(cacheFirst(e.request));
   else if(url.origin === self.location.origin) e.respondWith(shell(e));
-  // ponytail: ricerca comuni solo online, la pagina mostra già l'errore
+  // ricerca online (frazioni e località) solo con rete: i comuni sono in comuni.js
 });
 
 // Rete prima; se manca, ultima risposta con l'ora in x-cached-at così la pagina può dichiararla.
