@@ -140,6 +140,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .chart-box{overflow-x:auto}
 .chart-box svg{display:block;width:100%;min-width:560px;height:auto;touch-action:pan-x}
 .chart-box svg:focus-visible{outline:2px solid var(--sea);outline-offset:-2px;border-radius:6px}
+.hours-wrap{overflow-x:auto;margin-inline:-4px;padding:4px;scroll-snap-type:x proximity;scrollbar-width:thin}
+.hours{display:flex;gap:6px;width:max-content}
+.hour{flex:none;width:60px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 4px;border:1px solid var(--line);border-radius:10px;background:transparent;font-size:12px;line-height:1.3}
+.hour[aria-pressed="true"]{border-color:var(--sea);box-shadow:inset 0 0 0 1px var(--sea);background:var(--sea-soft)}
+.hour .h{font-weight:700;font-size:13px}
+.hour .ic{width:26px;height:26px;margin:2px 0}
+.hour .t{font-size:15px;font-weight:600}
+.hour .r{color:var(--rain);font-weight:600;min-height:1.3em}
+.hour .w{color:var(--muted);display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
+.hour .w svg{width:11px;height:11px;flex:none}
+.hour .s{color:var(--sea);font-weight:600}
 .readout{font-size:14px;min-height:21px;color:var(--ink);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:8px 12px}
 .legend{display:flex;flex-wrap:wrap;gap:6px}
 .legend button{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px}
@@ -215,6 +227,8 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   .chart-box{overflow:visible}
   .chart-box svg{min-width:0;touch-action:pan-y}
   .readout{min-height:63px;font-size:13px}
+  .hours-wrap{margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px;scrollbar-width:none}
+  .hours-wrap::-webkit-scrollbar{display:none}
   .legend button{min-height:36px}
   /* tabella: solo le colonne utili, senza scroll laterale */
   table{min-width:0;font-size:13px}
@@ -303,6 +317,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     <h2 id="dtitle">Dettaglio ora per ora</h2>
     <p class="sub" id="dsub"></p>
     <p class="sun" id="dsun"></p>
+    <div class="hours-wrap" role="group" aria-label="Ora per ora"><div class="hours" id="hours"></div></div>
     <div class="legend" id="legend"></div>
     <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" tabindex="0" role="slider" aria-label="Ora del grafico di temperatura e pioggia" aria-describedby="khint"></svg></div>
     <div class="readout" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
@@ -594,9 +609,15 @@ function kindOf({cloud, p, wet, storm, t, day, daily}){
   if(c > 35) return day ? "partly" : "cloud";
   return day ? "sun" : "moon";
 }
+// giorno o notte secondo alba e tramonto del luogo: è giorno l'ora in cui sorge il sole (con alba alle 06:27, le 06:00)
+function isDaylight(time){
+  const p = state.place, st = p && sunTimes(time.slice(0,10), p.lat, p.lon);
+  if(!st){ const hr = +time.slice(11,13); return hr >= 7 && hr < 18; }
+  const t = time.slice(11,16);
+  return t >= hm(st.rise).replace(/:\d\d$/, ":00") && t < hm(st.set);
+}
 function hourKind(h){
-  const hr = +h.time.slice(11,13);
-  return kindOf({cloud:h.cloud, p:h.p, wet:h.pwet, storm:h.storm, t:h.t, day:hr>=7 && hr<18});
+  return kindOf({cloud:h.cloud, p:h.p, wet:h.pwet, storm:h.storm, t:h.t, day:isDaylight(h.time)});
 }
 const AGREE_TXT = {alta:"Alta", media:"Media", bassa:"Bassa"};
 function agreeSentence(d){
@@ -683,7 +704,7 @@ function renderDay(){
   $("dtitle").textContent = (state.day===0?"Oggi, ":state.day===1?"Domani, ":"")+dayFull(d.date);
   $("dsun").innerHTML = sunHTML(d.date, true);
   $("dsub").innerHTML = LABEL[d.kind]+" · concordanza <span class=\"a-"+d.agree+"\" style=\"font-weight:700\">"+AGREE_TXT[d.agree].toLowerCase()+"</span>. "+agreeSentence(d);
-  renderSea(); renderLegend(d); renderChart(d); renderTable(d);
+  renderSea(); renderLegend(d); renderChart(d); renderHours(d); renderTable(d);
   $("readout").textContent = PHONE.matches ? "Tocca il grafico per leggere i valori di un'ora."
     : "Passa sul grafico, o selezionalo e usa le frecce, per leggere i valori di un'ora.";
 }
@@ -772,6 +793,7 @@ function renderChart(d){
   let cur = -1;
   const show = j => {
     cur = j; const h = pts[j], c = svg.querySelector("#cursor");
+    document.querySelectorAll("#hours .hour").forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.j === j)));
     c.setAttribute("x1",x(j)); c.setAttribute("x2",x(j)); c.setAttribute("visibility","visible");
     const txt = hourText(h);
     $("readout").textContent = txt;
@@ -780,6 +802,7 @@ function renderChart(d){
   const start = nowJ >= 0 ? nowJ : Math.max(0, pts.findIndex(h => h.time.endsWith("12:00")));
   svg.setAttribute("aria-valuemin", 0); svg.setAttribute("aria-valuemax", n-1);
   svg.setAttribute("aria-valuenow", start); svg.setAttribute("aria-valuetext", hourText(pts[start]));
+  state.chartShow = show;
   svg.onpointermove = svg.onclick = e => {
     const b = svg.getBoundingClientRect();
     show(Math.max(0, Math.min(n-1, Math.round(((e.clientX-b.left)/b.width*W-L)/(W-L-R)*(n-1)))));
@@ -794,6 +817,28 @@ function renderChart(d){
     show(cur < 0 && e.key !== "Home" && e.key !== "End" ? start : Math.max(0, Math.min(n-1, to)));
   };
 }
+
+/* ora per ora: dalla prossima ora (oggi) o da mezzanotte; toccare un'ora la mostra anche nel grafico */
+const ARROW = '<path d="M12 20V4M6 10l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>';
+function renderHours(d){
+  const D = state.data, from = state.day === 0 ? Math.max(0, d.ids.indexOf(D.nowIdx)) : 0;
+  $("hours").innerHTML = d.ids.slice(from).map((i, k) => {
+    const h = D.H[i], j = from + k, sea = D.sea && D.sea.byTime.get(h.time);
+    const label = state.day === 0 && k === 0 ? "Ora" : h.time.slice(11,13);
+    // la freccia indica dove va il vento: proviene da wd, quindi punta a wd + 180
+    const wind = h.ws != null ? '<span class="w num">'+(h.wd != null ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate('+Math.round(h.wd+180)+'deg)">'+ARROW+'</svg>' : "")+Math.round(h.ws)+'</span>' : "";
+    return '<button type="button" class="hour" data-j="'+j+'" aria-pressed="false" aria-label="'+esc(hourText(h))+'">'+
+      '<span class="h num">'+label+'</span>'+iconHTML(hourKind(h))+
+      '<span class="t num">'+(h.t != null ? deg(h.t) : "–")+'</span>'+
+      '<span class="r num">'+(h.p >= 0.1 ? n1(h.p)+" mm" : h.pwet >= 0.3 ? Math.round(h.pwet*100)+"%" : "")+'</span>'+
+      wind+(sea ? '<span class="s num">'+n1(sea.wh)+' m</span>' : "")+
+    '</button>';
+  }).join("");
+  $("hours").parentElement.scrollLeft = 0;
+}
+$("hours").addEventListener("click", e => {
+  const b = e.target.closest(".hour"); if(b && state.chartShow) state.chartShow(+b.dataset.j);
+});
 
 function hourText(h){
   return "Ore "+h.time.slice(11,16)+" · "+(h.t!=null?n1(h.t)+"°":"–")+(h.n>1?" (modelli "+n1(h.tmin)+"–"+n1(h.tmax)+"°)":"")+

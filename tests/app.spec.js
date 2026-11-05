@@ -71,6 +71,57 @@ test("il grafico si legge da tastiera", async ({ page, api }) => {
   await expect(page.locator("#cursor")).toHaveAttribute("visibility", "visible");
 });
 
+test.describe("ora per ora", () => {
+  test("oggi parte da adesso, gli altri giorni hanno 24 ore", async ({ page, api }) => {
+    api.opt.rainDays = [1];
+    await page.goto("/");
+    await ready(page);
+    const hours = page.locator("#hours .hour");
+    const left = 24 - new Date().toLocaleString("it-IT", { timeZone: "Europe/Rome", hour: "2-digit", hourCycle: "h23" }) * 1;
+    await expect(hours).toHaveCount(left);
+    await expect(hours.first().locator(".h")).toHaveText("Ora");
+    await page.locator('.day[data-i="1"]').click();
+    await expect(hours).toHaveCount(24);
+    await expect(hours.first().locator(".h")).toHaveText("00");
+    await expect(hours.nth(14).locator(".r")).toHaveText("2 mm"); // pioggia simulata tra le 11 e le 19
+    await expect(hours.nth(14).locator(".w")).toHaveText("10");
+    await expect(hours.nth(14).locator(".w svg")).toHaveAttribute("style", "transform:rotate(380deg)"); // da S a 200°: va verso N
+  });
+
+  test("un'ora toccata si legge anche nel grafico, e viceversa", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await page.locator('.day[data-i="2"]').click();
+    const h15 = page.locator('#hours .hour[data-j="15"]');
+    await h15.click();
+    await expect(h15).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#readout")).toContainText("Ore 15:00");
+    await expect(page.locator("#cursor")).toHaveAttribute("visibility", "visible");
+    await page.locator("#chart").focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(page.locator('#hours .hour[data-j="16"]')).toHaveAttribute("aria-pressed", "true");
+    await expect(h15).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("nei comuni costieri ogni ora ha le onde", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#quick button", { hasText: "Tropea" }).click();
+    await expect(page.locator("#sea")).toBeVisible();
+    await page.locator('.day[data-i="1"]').click();
+    await expect(page.locator("#hours .hour .s")).toHaveCount(24);
+    await expect(page.locator('#hours .hour[data-j="15"] .s')).toHaveText("0,4 m");
+  });
+
+  test("di notte la luna, di giorno il sole", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    await page.locator('.day[data-i="1"]').click();
+    await expect(page.locator('#hours .hour[data-j="2"] .ic')).toHaveClass(/moon/);
+    await expect(page.locator('#hours .hour[data-j="12"] .ic')).toHaveClass(/sun/);
+  });
+});
+
 test.describe("sole e UV", () => {
   const hhmm = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
 
