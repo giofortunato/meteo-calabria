@@ -59,7 +59,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 
 /* ricerca */
 .search{display:flex;flex-direction:column;gap:10px;position:relative}
-.search input{width:100%;font:inherit;font-size:17px;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.field{position:relative}
+.field svg{position:absolute;left:14px;top:50%;width:20px;height:20px;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input{width:100%;font:inherit;font-size:17px;padding:12px 14px 12px 44px;border-radius:10px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
 .results{position:absolute;top:52px;left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgb(0 0 0 / .15);overflow:hidden}
 .results button{display:block;width:100%;text-align:left;border:0;background:none;padding:11px 14px;border-bottom:1px solid var(--line)}
 .results button:last-child{border-bottom:0}
@@ -71,7 +73,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .quick button[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:var(--surface)}
 
 /* adesso */
-.now{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:grid;grid-template-columns:auto 1fr;gap:20px 28px;align-items:center}
+.now{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;align-items:stretch}
+.now-main{display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-width:0}
 .now .place h2{font-size:26px;line-height:1.1}
 .now .place p{margin:2px 0 0;color:var(--muted);font-size:14px}
 .now .big{display:flex;align-items:center;gap:14px}
@@ -79,8 +82,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .now .big .t{font-family:var(--display);font-size:72px;line-height:.9;font-weight:600}
 .now .big .cond{font-size:18px;font-weight:600}
 .now .big .range{color:var(--muted);font-size:14px}
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px 20px;min-width:0}
-.facts div{display:flex;flex-direction:column;gap:2px}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0;align-content:center}
+.facts > div{display:flex;flex-direction:column;gap:4px;background:var(--bg);border-radius:10px;padding:10px 14px;min-width:0}
 .facts .v{font-size:18px;font-weight:600}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:700;padding:3px 10px;border-radius:999px;border:1px solid currentColor;width:max-content}
 .pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
@@ -88,6 +91,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .status{font-size:13px;color:var(--muted);grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}
 
 /* giorni */
+.sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;flex-wrap:wrap;margin-bottom:8px}
+.sec-head h2{font-family:var(--body)}
+.key{display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.key span{display:inline-flex;align-items:center;gap:5px}
+.key i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
 .days-wrap{overflow-x:auto;margin-inline:-4px;padding:4px}
 .days{display:grid;grid-template-columns:repeat(7,minmax(112px,1fr));gap:8px}
 .day{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center}
@@ -97,8 +105,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .day .ic{width:38px;height:38px;margin:4px 0}
 .day .tt{font-size:15px}
 .day .tt b{color:var(--warm)}
-.day .rp{font-size:13px;color:var(--rain);font-weight:600}
-.day .dot{width:8px;height:8px;border-radius:50%;background:currentColor;margin-top:2px}
+.day .rb{position:relative;width:80%;height:4px;border-radius:2px;background:var(--line);margin:2px 0}
+.day .rb i{position:absolute;top:0;bottom:0;border-radius:2px;background:linear-gradient(90deg,var(--sea),var(--warm))}
+.day .rp{font-size:13px;line-height:1.3;color:var(--rain);font-weight:600;min-height:2.6em;display:flex;flex-direction:column}
+.day .dot{width:8px;height:8px;border-radius:50%;background:currentColor;margin-top:auto}
 
 /* dettaglio */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -106,9 +116,9 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .panel .sub{margin:-8px 0 0;color:var(--muted);font-size:15px}
 .chart-box{overflow-x:auto}
 .chart-box svg{display:block;width:100%;min-width:560px;height:auto;touch-action:pan-x}
-.readout{font-size:14px;min-height:21px;color:var(--ink)}
+.readout{font-size:14px;min-height:21px;color:var(--ink);font-variant-numeric:tabular-nums;background:var(--bg);border-radius:8px;padding:8px 12px}
 .legend{display:flex;flex-wrap:wrap;gap:6px}
-.legend button{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px}
+.legend button{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:13px}
 .legend button[aria-pressed="false"]{opacity:.45}
 .legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
 .legend .cons{border-color:transparent;cursor:default;font-weight:700}
@@ -141,19 +151,20 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   .brand p{display:none}
   .refresh{flex:none;min-height:44px}
   /* comuni e giorni scorrono fino al bordo, così si capisce che continuano */
-  .quick,.days-wrap{margin-inline:-16px;padding-inline:16px;overflow-x:auto;scrollbar-width:none;scroll-padding-inline:16px}
-  .quick::-webkit-scrollbar,.days-wrap::-webkit-scrollbar{display:none}
+  .quick,.days-wrap,.legend{margin-inline:-16px;padding-inline:16px;overflow-x:auto;scrollbar-width:none;scroll-padding-inline:16px}
+  .quick::-webkit-scrollbar,.days-wrap::-webkit-scrollbar,.legend::-webkit-scrollbar{display:none}
+  .legend{flex-wrap:nowrap}
+  .legend button{flex:none}
   .quick{flex-wrap:nowrap}
   .quick button{flex:none;min-height:40px;white-space:nowrap}
   .days-wrap{scroll-snap-type:x proximity}
   .days{grid-template-columns:repeat(7,92px);width:max-content}
   .day{scroll-snap-align:start;padding:10px 6px}
   .day .tt{font-size:14px;white-space:nowrap}
-  .day .rp{font-size:12px;line-height:1.25}
-  .day .rp span:last-child{white-space:nowrap}
+  .day .rp{font-size:12px}
   /* adesso */
   .now{grid-template-columns:minmax(0,1fr);gap:14px;padding:16px}
-  .now > div:empty{display:none}
+  .facts > div{padding:8px 12px}
   .now .big{gap:10px}
   .now .big .ic{width:52px;height:52px;flex:none}
   .now .big .t{font-size:56px}
@@ -163,7 +174,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   .panel{padding:16px}
   .chart-box{overflow:visible}
   .chart-box svg{min-width:0;touch-action:pan-y}
-  .readout{min-height:63px}
+  .readout{min-height:63px;font-size:13px}
   .legend button{min-height:36px}
   /* tabella: solo le colonne utili, senza scroll laterale */
   table{min-width:0;font-size:13px}
@@ -188,7 +199,10 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   </header>
 
   <section class="search" aria-label="Scegli il comune">
+    <div class="field">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></g></svg>
     <input id="q" type="search" placeholder="Cerca un comune calabrese…" autocomplete="off" aria-label="Cerca un comune calabrese">
+    </div>
     <div class="results" id="results" hidden></div>
     <div class="quick" id="quick"></div>
   </section>
@@ -196,8 +210,8 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   <div id="err" class="err" hidden></div>
 
   <section class="now" id="now" aria-live="polite">
+    <div class="now-main">
     <div class="place"><h2 id="pname">Caricamento…</h2><p id="pmeta"></p></div>
-    <div></div>
     <div class="big">
       <svg class="ic" id="nic" viewBox="0 0 24 24"></svg>
       <div>
@@ -208,16 +222,21 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
         <div class="range" id="nrange"></div>
       </div>
     </div>
+    </div>
     <div class="facts">
-      <div><span class="label">Pioggia prossime 6 ore</span><span class="v num" id="nrain">–</span></div>
+      <div><span class="label">Pioggia, 6 ore</span><span class="v num" id="nrain">–</span></div>
       <div><span class="label">Vento</span><span class="v num" id="nwind">–</span></div>
       <div><span class="label">Raffiche</span><span class="v num" id="ngust">–</span></div>
-      <div><span class="label">Concordanza oggi</span><span id="nagree"></span></div>
+      <div><span class="label">Concordanza</span><span id="nagree"></span></div>
     </div>
     <div class="status" id="status">Sto scaricando le previsioni…</div>
   </section>
 
-  <section aria-label="Prossimi 7 giorni">
+  <section aria-labelledby="dhead">
+    <div class="sec-head">
+      <h2 class="label" id="dhead">Prossimi 7 giorni</h2>
+      <span class="key">Concordanza tra i modelli: <span class="a-alta"><i></i>alta</span> <span class="a-media"><i></i>media</span> <span class="a-bassa"><i></i>bassa</span></span>
+    </div>
     <div class="days-wrap"><div class="days" id="days"></div></div>
   </section>
 
@@ -226,7 +245,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     <p class="sub" id="dsub"></p>
     <div class="legend" id="legend"></div>
     <div class="chart-box"><svg id="chart" viewBox="0 0 720 284" role="img" aria-label="Andamento orario di temperatura e pioggia"></svg></div>
-    <div class="readout num" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
+    <div class="readout" id="readout">Tocca il grafico per leggere i valori di un'ora.</div>
   </section>
 
   <section class="panel">
@@ -449,12 +468,15 @@ function renderAll(){
   if(D.failed.length) st += " (non rispondono: "+D.failed.map(m=>m.name).join(", ")+")";
   $("status").textContent = st;
 
+  const wlo = Math.min(...D.days.map(d=>d.tmin)), whi = Math.max(...D.days.map(d=>d.tmax)), wr = Math.max(1, whi-wlo);
+  const pct = v => (100*(v-wlo)/wr).toFixed(1)+"%";
   $("days").innerHTML = D.days.map((d,i)=>
     '<button class="day" type="button" data-i="'+i+'" aria-pressed="'+(i===state.day)+'">'+
       '<span class="dn">'+dayName(d.date,i)+'</span><span class="dd">'+new Date(d.date+"T12:00:00").getDate()+" "+MON[+d.date.slice(5,7)-1]+'</span>'+
       iconHTML(d.kind)+
       '<span class="tt num"><b>'+deg(d.tmax)+'</b> / '+deg(d.tmin)+'</span>'+
-      '<span class="rp num">'+(d.prob < 0.1 ? "&nbsp;" : Math.round(d.prob*100)+'%<span class="no-sm"> ·</span> <span>'+n1(d.psum)+" mm</span>")+'</span>'+
+      '<span class="rb" aria-hidden="true"><i style="left:'+pct(d.tmin)+';right:calc(100% - '+pct(d.tmax)+')"></i></span>'+
+      '<span class="rp num">'+(d.prob < 0.1 ? "" : '<span>'+Math.round(d.prob*100)+'%</span><span>'+n1(d.psum)+" mm</span>")+'</span>'+
       '<span class="dot a-'+d.agree+'" title="Concordanza '+AGREE_TXT[d.agree].toLowerCase()+'"></span>'+
     '</button>').join("");
   renderDay();
@@ -511,8 +533,8 @@ function renderChart(d){
   const pmax = Math.max(2, ...pts.map(h=>h.p));
   const bw = Math.max(4, (W-L-R)/n*0.62);
   s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+RB+'" y2="'+RB+'" stroke="var(--line)"/>';
-  s += '<text x="'+(L-6)+'" y="'+(RT+8)+'" text-anchor="end" font-size="10" fill="var(--rain)" font-family="var(--mono)">'+n1(pmax)+'</text>';
-  s += '<text x="'+(L-6)+'" y="'+(RB)+'" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--mono)">mm</text>';
+  if(pts.every(h=>h.p<0.05)) s += '<text x="'+((L+W-R)/2)+'" y="'+(RB-14)+'" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="var(--body)">nessuna pioggia prevista</text>';
+  else s += '<text x="'+(L-6)+'" y="'+(RT+8)+'" text-anchor="end" font-size="10" fill="var(--rain)" font-family="var(--mono)">'+n1(pmax)+'</text><text x="'+(L-6)+'" y="'+(RB)+'" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--mono)">mm</text>';
   pts.forEach((h,j)=>{ if(h.p<0.05) return; const hgt = h.p/pmax*(RB-RT); s += '<rect x="'+(x(j)-bw/2).toFixed(1)+'" y="'+(RB-hgt).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hgt.toFixed(1)+'" rx="1.5" fill="var(--rain)" fill-opacity="'+(0.35+0.65*h.pwet).toFixed(2)+'"/>'; });
   // asse ore
   pts.forEach((h,j)=>{ const hr=+h.time.slice(11,13); if(hr%3) return; s += '<text x="'+x(j)+'" y="'+XL+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+String(hr).padStart(2,"0")+'</text>'; });
