@@ -8,4 +8,14 @@ Per le allerte ufficiali fa fede il [Centro Funzionale Multirischi ARPACAL](http
 
 L'elenco dei 404 comuni (`comuni.js`) viene dal [database comuni italiani di Garda Informatica](https://www.gardainformatica.it/database-comuni-italiani) (MIT, dati ISTAT) e si rigenera con `scripts/genera-comuni.py`: istruzioni in testa allo script.
 
-Prova offline: `zsh check-offline.sh` (richiede Chrome).
+## Test
+
+Test end-to-end con Playwright, con Open-Meteo simulato: previsione, avvisi, ricerca, preferiti, Vicino a me, layout da telefono, uso offline, pulizia della cache e avviso di nuova versione. Girano da soli su GitHub a ogni pull request e a ogni push su `main`.
+
+In locale servono Node.js e Python 3:
+
+```bash
+npm install
+npx playwright install chromium
+npm test
+```
