@@ -121,7 +121,12 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .day .rb{position:relative;width:80%;height:4px;border-radius:2px;background:var(--line);margin:2px 0}
 .day .rb i{position:absolute;top:0;bottom:0;border-radius:2px;background:linear-gradient(90deg,var(--sea),var(--warm))}
 .day .rp{font-size:13px;line-height:1.3;color:var(--rain);font-weight:600;min-height:2.6em;display:flex;flex-direction:column}
+.day .wv{display:inline-flex;align-items:center;gap:3px;font-size:13px;color:var(--sea);font-weight:600}
+.day .wv svg{width:14px;height:14px}
 .day .dot{width:8px;height:8px;border-radius:50%;background:currentColor;margin-top:auto}
+.sea .facts{grid-template-columns:repeat(4,minmax(0,1fr))}
+.sea .facts .v{font-size:18px;font-weight:600}
+.sea .note-sm{margin:0;font-size:13px;color:var(--muted)}
 
 /* dettaglio */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -193,6 +198,8 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   /* adesso */
   .now{grid-template-columns:minmax(0,1fr);gap:14px;padding:16px}
   .facts > div{padding:8px 12px}
+  .sea .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .day .wv{font-size:12px}
   .now .big{gap:10px}
   .now .big .ic{width:52px;height:52px;flex:none}
   .now .big .t{font-size:56px}
@@ -274,6 +281,18 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     <div class="days-wrap"><div class="days" id="days"></div></div>
   </section>
 
+  <section class="panel sea" id="sea" aria-labelledby="seatitle" hidden>
+    <h2 id="seatitle">Mare</h2>
+    <p class="sub" id="seasub"></p>
+    <div class="facts">
+      <div><span class="label">Stato del mare</span><span class="v" id="sstate">–</span></div>
+      <div><span class="label">Onde fino a</span><span class="v num" id="swave">–</span></div>
+      <div><span class="label">Direzione, periodo</span><span class="v num" id="sdir">–</span></div>
+      <div><span class="label">Acqua</span><span class="v num" id="stemp">–</span></div>
+    </div>
+    <p class="note-sm">Previsione al largo, non a riva. Per la sicurezza in mare seguire gli avvisi della Guardia Costiera.</p>
+  </section>
+
   <section class="panel" id="detail">
     <h2 id="dtitle">Dettaglio ora per ora</h2>
     <p class="sub" id="dsub"></p>
@@ -292,7 +311,7 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   <section class="note">
     <p><b>Come funziona.</b> Per ogni ora la pagina scarica le previsioni di sette modelli e ne fa una media pesata. Nei primi tre giorni pesa di più ICON-2I di ItaliaMeteo, che ha una maglia di circa 2 km e "vede" Sila, Pollino e Aspromonte meglio dei modelli globali; dal quarto giorno il peso passa soprattutto a ECMWF. La fascia colorata nel grafico è la distanza tra il modello più freddo e quello più caldo: se è stretta i modelli sono d'accordo, se è larga la previsione è incerta.</p>
     <p><b>Probabilità di pioggia</b> = quota pesata di modelli che prevedono almeno 1 mm nella giornata. Le temperature sono già corrette per la quota reale del comune.</p>
-    <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA. Elenco dei comuni: <a href="https://www.gardainformatica.it/database-comuni-italiani" target="_blank" rel="noopener">Garda Informatica</a> (MIT), da dati ISTAT.</p>
+    <p>Per allerte ufficiali fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale Multirischi ARPACAL</a>. Dati meteo: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> (CC BY 4.0), modelli di ItaliaMeteo-ARPAE, ECMWF, DWD, Météo-France, UK Met Office e NOAA. Mare: Open-Meteo Marine. Elenco dei comuni: <a href="https://www.gardainformatica.it/database-comuni-italiani" target="_blank" rel="noopener">Garda Informatica</a> (MIT), da dati ISTAT; comuni costieri dai confini comunali ISTAT (CC BY 3.0).</p>
   </section>
 </div>
 
@@ -396,6 +415,41 @@ function nearest(lat, lon){
   return best;
 }
 const provShort = p => (p||"").replace(/^(provincia|città metropolitana) di /i, "");
+
+/* mare: per i luoghi vicino a un comune costiero, previsione nel punto in mare di quel comune (comuni.js) */
+const SEA_MAX_KM = 8;
+function seaPoint(p){
+  const near = nearest(p.lat, p.lon);
+  return near && near.c.length >= 6 && near.d <= SEA_MAX_KM ? {lat:near.c[4], lon:near.c[5], comune:near.c[0]} : null;
+}
+function marineURL(s){
+  return "https://marine-api.open-meteo.com/v1/marine?latitude="+s.lat.toFixed(3)+"&longitude="+s.lon.toFixed(3)+
+    "&hourly=wave_height,wave_direction,wave_period,sea_surface_temperature&forecast_days=7&timezone=Europe%2FRome";
+}
+// scala Douglas, come nei bollettini del mare
+function douglas(h){
+  return h < 0.1 ? "Quasi calmo" : h < 0.5 ? "Poco mosso" : h < 1.25 ? "Mosso" : h < 2.5 ? "Molto mosso" :
+    h < 4 ? "Agitato" : h < 6 ? "Molto agitato" : h < 9 ? "Grosso" : h < 14 ? "Molto grosso" : "Tempestoso";
+}
+function buildSea(j, D, sp){
+  const h = j && j.hourly; if(!h || !h.time) return null;
+  const idx = new Map(h.time.map((t,i) => [t,i]));
+  const at = t => { const i = idx.get(t); if(i == null) return null;
+    const v = k => (h[k] && h[k][i] != null && !Number.isNaN(h[k][i])) ? h[k][i] : null;
+    const x = {wh:v("wave_height"), wd:v("wave_direction"), wp:v("wave_period"), sst:v("sea_surface_temperature")};
+    return x.wh == null ? null : x; };
+  const byTime = new Map(D.times.map(t => [t, at(t)]));
+  const days = D.days.map(d => {
+    const hs = d.ids.map(i => byTime.get(D.times[i])).filter(Boolean);
+    if(hs.length < 12) return null; // giorno coperto solo in parte: meglio niente che un massimo sbagliato
+    const top = hs.reduce((a,b) => b.wh > a.wh ? b : a);
+    const ts = hs.map(x => x.sst).filter(v => v != null);
+    return {whMax:top.wh, wd:top.wd, wp:top.wp, sst:ts.length ? ts.reduce((a,b)=>a+b,0)/ts.length : null};
+  });
+  if(!days.some(Boolean)) return null;
+  return {comune:sp.comune, byTime, days, now:byTime.get(D.times[D.nowIdx])};
+}
+const WAVE = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2M2 16c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/></g></svg>';
 
 function modelURL(m, p){
   return "https://api.open-meteo.com/v1/forecast?latitude="+p.lat.toFixed(4)+"&longitude="+p.lon.toFixed(4)+
@@ -549,6 +603,7 @@ function renderAll(){
       '<span class="tt num"><b>'+deg(d.tmax)+'</b> / '+deg(d.tmin)+'</span>'+
       '<span class="rb" aria-hidden="true"><i style="left:'+pct(d.tmin)+';right:calc(100% - '+pct(d.tmax)+')"></i></span>'+
       '<span class="rp num">'+(d.prob < 0.1 ? "" : '<span>'+Math.round(d.prob*100)+'%</span><span>'+n1(d.psum)+" mm</span>")+'</span>'+
+      (D.sea && D.sea.days[i] ? '<span class="wv num" title="Onde fino a '+n1(D.sea.days[i].whMax)+' m">'+WAVE+n1(D.sea.days[i].whMax)+' m</span>' : "")+
       '<span class="dot a-'+d.agree+'" title="Concordanza '+AGREE_TXT[d.agree].toLowerCase()+'"></span>'+
     '</button>').join("");
   renderAlerts(D);
@@ -563,6 +618,8 @@ function renderAlerts(D){
     if(d.storm >= 0.4) why.push("temporali ("+Math.round(d.storm*100)+"% dei modelli)");
     if(d.gmax != null && d.gmax >= 60) why.push("raffiche fino a "+Math.round(d.gmax)+" km/h");
     if(d.psum >= 30) why.push("pioggia abbondante, circa "+Math.round(d.psum)+" mm");
+    const sd = D.sea && D.sea.days[i];
+    if(sd && sd.whMax >= 2.5) why.push("mare "+douglas(sd.whMax).toLowerCase()+", onde fino a "+n1(sd.whMax)+" m");
     if(why.length) items.push('<li><button type="button" data-i="'+i+'">'+(i===0?"Oggi":i===1?"Domani":dayFull(d.date))+'</button>: '+why.join(", ")+'</li>');
   });
   const box = $("alerts");
@@ -576,9 +633,23 @@ function renderDay(){
   const D = state.data; const d = D.days[state.day]; if(!d) return;
   $("dtitle").textContent = (state.day===0?"Oggi, ":state.day===1?"Domani, ":"")+dayFull(d.date);
   $("dsub").innerHTML = LABEL[d.kind]+" · concordanza <span class=\"a-"+d.agree+"\" style=\"font-weight:700\">"+AGREE_TXT[d.agree].toLowerCase()+"</span>. "+agreeSentence(d);
-  renderLegend(d); renderChart(d); renderTable(d);
+  renderSea(); renderLegend(d); renderChart(d); renderTable(d);
   $("readout").textContent = PHONE.matches ? "Tocca il grafico per leggere i valori di un'ora."
     : "Passa sul grafico, o selezionalo e usa le frecce, per leggere i valori di un'ora.";
+}
+
+function renderSea(){
+  const S = state.data.sea, sd = S && S.days[state.day];
+  $("sea").hidden = !sd;
+  if(!sd) return;
+  const d = state.data.days[state.day];
+  $("seatitle").textContent = "Mare, "+(state.day===0 ? "oggi" : state.day===1 ? "domani" : dayFull(d.date));
+  const n = state.day===0 && S.now;
+  $("seasub").textContent = "Al largo di "+S.comune+"."+(n ? " Adesso onde di "+n1(n.wh)+" m"+(n.wd!=null ? " da "+windDir(n.wd) : "")+", mare "+douglas(n.wh).toLowerCase()+"." : "");
+  $("sstate").textContent = douglas(sd.whMax);
+  $("swave").textContent = n1(sd.whMax)+" m";
+  $("sdir").textContent = (sd.wd!=null ? "da "+windDir(sd.wd) : "–")+(sd.wp!=null ? " · "+Math.round(sd.wp)+" s" : "");
+  $("stemp").textContent = sd.sst!=null ? n1(sd.sst)+"°" : "–";
 }
 
 function renderLegend(d){
@@ -669,7 +740,12 @@ function renderChart(d){
 function hourText(h){
   return "Ore "+h.time.slice(11,16)+" · "+(h.t!=null?n1(h.t)+"°":"–")+(h.n>1?" (modelli "+n1(h.tmin)+"–"+n1(h.tmax)+"°)":"")+
     " · pioggia "+n1(h.p)+" mm"+(h.pwet>=0.1?" ("+Math.round(h.pwet*100)+"% dei modelli)":"")+
-    " · vento "+(h.ws!=null?Math.round(h.ws):"–")+" km/h "+windDir(h.wd)+(h.wg!=null?", raffiche "+Math.round(h.wg):"");
+    " · vento "+(h.ws!=null?Math.round(h.ws):"–")+" km/h "+windDir(h.wd)+(h.wg!=null?", raffiche "+Math.round(h.wg):"")+
+    seaText(h.time);
+}
+function seaText(t){
+  const x = state.data.sea && state.data.sea.byTime.get(t);
+  return x ? " · onde "+n1(x.wh)+" m" : "";
 }
 
 function renderTable(d){
@@ -696,10 +772,15 @@ async function load(place){
   renderQuick();
   document.body.classList.add("loading"); $("refresh").textContent = "Aggiorno…";
   showErr(null);
-  const raw = await Promise.all(MODELS.map(m => getJSON(modelURL(m,place))
-    .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt, elev:j.elevation}))
-    .catch(e => ({m, h:null, err:e.message}))));
+  const sp = seaPoint(place);
+  const [raw, marine] = await Promise.all([
+    Promise.all(MODELS.map(m => getJSON(modelURL(m,place))
+      .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt, elev:j.elevation}))
+      .catch(e => ({m, h:null, err:e.message})))),
+    sp ? getJSON(marineURL(sp)).catch(() => null) : null // se il mare non risponde, la pagina va avanti senza
+  ]);
   const D = build(raw);
+  if(D) D.sea = buildSea(marine, D, sp);
   state.busy = false;
   document.body.classList.remove("loading"); $("refresh").textContent = "Aggiorna";
   if(!D){
