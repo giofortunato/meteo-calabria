@@ -70,12 +70,24 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 .results .empty{padding:11px 14px;color:var(--muted)}
 .quick{display:flex;flex-wrap:wrap;gap:6px}
 .quick button{border:1px solid var(--line);background:transparent;border-radius:999px;padding:4px 11px;font-size:14px;color:var(--muted)}
+.quick button{display:inline-flex;align-items:center;gap:5px}
+.quick button svg{width:14px;height:14px;flex:none}
+.quick .gps{color:var(--sea);border-color:var(--sea);font-weight:600}
+.quick .gps.busy{opacity:.6}
+.quick .fv svg{color:var(--warm)}
 .quick button[aria-pressed="true"]{background:var(--sea);border-color:var(--sea);color:var(--surface)}
+.quick button[aria-pressed="true"] svg{color:inherit}
 
 /* adesso */
 .now{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px 24px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px 32px;align-items:stretch}
 .now-main{display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-width:0}
-.now .place h2{font-size:26px;line-height:1.1}
+.now .place .ph{display:flex;align-items:center;gap:8px}
+.now .place h2{font-size:26px;line-height:1.1;min-width:0}
+.fav{flex:none;border:0;background:none;padding:6px;margin:-6px 0;border-radius:8px;color:var(--muted);line-height:0}
+.fav svg{width:24px;height:24px}
+.fav:hover{color:var(--warm)}
+.fav[aria-pressed="true"]{color:var(--warm)}
+.fav[aria-pressed="true"] path{fill:currentColor}
 .now .place p{margin:2px 0 0;color:var(--muted);font-size:14px}
 .now .big{display:flex;align-items:center;gap:14px}
 .now .big .ic{width:64px;height:64px}
@@ -137,6 +149,13 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
 .note{font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:8px;max-width:70ch}
 .note p{margin:0}
 .note a{color:var(--sea)}
+.alerts{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--mid);border-radius:12px;padding:14px 18px;display:flex;flex-direction:column;gap:8px}
+.alerts .ah{display:flex;align-items:center;gap:8px;font-family:var(--display);font-size:19px;font-weight:700}
+.alerts .ah svg{width:22px;height:22px;color:var(--mid);flex:none}
+.alerts ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.alerts li button{border:0;background:none;padding:0;font-weight:700;color:var(--sea);text-decoration:underline;text-underline-offset:2px}
+.alerts p{margin:0;font-size:13px;color:var(--muted)}
+.alerts a{color:var(--sea)}
 .err{background:var(--surface);border:1px solid var(--bad);color:var(--ink);border-radius:12px;padding:16px}
 .err b{color:var(--bad)}
 .ic{color:var(--muted)}
@@ -211,7 +230,11 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
 
   <section class="now" id="now" aria-live="polite">
     <div class="now-main">
-    <div class="place"><h2 id="pname">Caricamento…</h2><p id="pmeta"></p></div>
+    <div class="place">
+      <div class="ph"><h2 id="pname">Caricamento…</h2>
+        <button class="fav" id="fav" type="button" aria-pressed="false" aria-label="Aggiungi ai preferiti" title="Aggiungi ai preferiti" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+      </div>
+      <p id="pmeta"></p></div>
     <div class="big">
       <svg class="ic" id="nic" viewBox="0 0 24 24"></svg>
       <div>
@@ -231,6 +254,8 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
     </div>
     <div class="status" id="status">Sto scaricando le previsioni…</div>
   </section>
+
+  <section class="alerts" id="alerts" aria-label="Avvisi dei modelli" hidden></section>
 
   <section aria-labelledby="dhead">
     <div class="sec-head">
@@ -276,6 +301,11 @@ const VARS = "temperature_2m,precipitation,cloud_cover,wind_speed_10m,wind_direc
 const QUICK = ["Cosenza","Catanzaro","Reggio Calabria","Crotone","Vibo Valentia","Lamezia Terme","Camigliatello Silano","Tropea","Scalea","Santa Domenica Talao"];
 const DEFAULT_PLACE = {name:"Santa Domenica Talao", lat:39.8186, lon:15.8536, elev:null, prov:"Cosenza"};
 const STORE = "meteoCalabria.place";
+const FAVS = "meteoCalabria.favs";
+const CALABRIA = {s:37.85, n:40.2, w:15.55, e:17.3}; // riquadro approssimato, per dire "sei fuori" a chi usa il GPS
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" fill="currentColor"/></svg>';
+const PIN = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></g></svg>';
+const WARN = '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.2 2.6 17.5A2 2 0 0 0 4.3 20.5h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></g></svg>';
 
 const $ = id => document.getElementById(id);
 const nf1 = new Intl.NumberFormat("it-IT",{maximumFractionDigits:1});
@@ -447,8 +477,10 @@ function dayFull(date){
 /* ---------- rendering ---------- */
 function renderAll(){
   const D = state.data, p = state.place;
+  if(!D) $("alerts").hidden = true;
   $("pname").textContent = p.name;
-  $("pmeta").textContent = [p.prov ? (/^(provincia|città)/i.test(p.prov) ? p.prov : "Provincia di "+p.prov) : "", p.elev!=null ? Math.round(p.elev)+" m s.l.m." : ""].filter(Boolean).join(" · ");
+  renderFavBtn();
+  $("pmeta").textContent = [p.gps ? "Dal GPS del dispositivo" : "", p.prov ? (/^(provincia|città)/i.test(p.prov) ? p.prov : "Provincia di "+p.prov) : "", p.elev!=null ? Math.round(p.elev)+" m s.l.m." : ""].filter(Boolean).join(" · ");
   if(!D) return;
   const h = D.H[D.nowIdx];
   const k = hourKind(h);
@@ -479,7 +511,25 @@ function renderAll(){
       '<span class="rp num">'+(d.prob < 0.1 ? "" : '<span>'+Math.round(d.prob*100)+'%</span><span>'+n1(d.psum)+" mm</span>")+'</span>'+
       '<span class="dot a-'+d.agree+'" title="Concordanza '+AGREE_TXT[d.agree].toLowerCase()+'"></span>'+
     '</button>').join("");
+  renderAlerts(D);
   renderDay();
+}
+
+/* avvisi: soglie scelte per segnalare, non per allertare; le allerte ufficiali restano quelle ARPACAL */
+function renderAlerts(D){
+  const items = [];
+  D.days.forEach((d,i) => {
+    const why = [];
+    if(d.storm >= 0.4) why.push("temporali ("+Math.round(d.storm*100)+"% dei modelli)");
+    if(d.gmax != null && d.gmax >= 60) why.push("raffiche fino a "+Math.round(d.gmax)+" km/h");
+    if(d.psum >= 30) why.push("pioggia abbondante, circa "+Math.round(d.psum)+" mm");
+    if(why.length) items.push('<li><button type="button" data-i="'+i+'">'+(i===0?"Oggi":i===1?"Domani":dayFull(d.date))+'</button>: '+why.join(", ")+'</li>');
+  });
+  const box = $("alerts");
+  box.hidden = !items.length;
+  if(!items.length){ box.innerHTML = ""; return; }
+  box.innerHTML = '<div class="ah">'+WARN+'Da tenere d\'occhio</div><ul>'+items.join("")+'</ul>'+
+    '<p>Sono indicazioni dei modelli, non allerte ufficiali: fa fede il <a href="https://www.cfd.calabria.it" target="_blank" rel="noopener">Centro Funzionale ARPACAL</a>.</p>';
 }
 
 function renderDay(){
@@ -581,7 +631,7 @@ async function load(place){
   document.body.classList.add("loading"); $("refresh").textContent = "Aggiorno…";
   showErr(null);
   const raw = await Promise.all(MODELS.map(m => getJSON(modelURL(m,place))
-    .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt}))
+    .then(j => ({m, h:j.hourly, offset:j.utc_offset_seconds, cachedAt:j.cachedAt, elev:j.elevation}))
     .catch(e => ({m, h:null, err:e.message}))));
   const D = build(raw);
   state.busy = false;
@@ -592,11 +642,53 @@ async function load(place){
     $("status").textContent = "Nessun dato ricevuto.";
     state.data = null; renderAll(); return;
   }
+  // il GPS non dà la quota: la prende dalla risposta del modello
+  if(place.elev == null){ const e = raw.find(x => typeof x.elev === "number"); if(e){ place.elev = e.elev; try{ localStorage.setItem(STORE, JSON.stringify(place)); }catch(err){} } }
   state.data = D; renderAll();
 }
 
+/* preferiti: luoghi completi, così si caricano senza ripassare dalla ricerca */
+function getFavs(){
+  try{ const v = JSON.parse(localStorage.getItem(FAVS)||"[]"); return Array.isArray(v) ? v.filter(x => x && typeof x.lat==="number") : []; }catch(e){ return []; }
+}
+const samePlace = (a,b) => !!(a && b && a.name===b.name && Math.abs(a.lat-b.lat) < 0.01 && Math.abs(a.lon-b.lon) < 0.01);
+function toggleFav(){
+  const p = state.place; if(!p || p.gps) return;
+  let favs = getFavs();
+  favs = favs.some(f => samePlace(f,p)) ? favs.filter(f => !samePlace(f,p)) : [...favs, {name:p.name, lat:p.lat, lon:p.lon, elev:p.elev, prov:p.prov}];
+  try{ localStorage.setItem(FAVS, JSON.stringify(favs)); }
+  catch(e){ showErr("<b>Non riesco a salvare i preferiti</b> su questo browser (navigazione privata?)."); return; }
+  renderFavBtn(); renderQuick();
+}
+function renderFavBtn(){
+  const p = state.place, b = $("fav");
+  b.hidden = !p || !!p.gps;
+  const on = getFavs().some(f => samePlace(f,p));
+  const t = on ? "Togli dai preferiti" : "Aggiungi ai preferiti";
+  b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", t); b.title = t;
+}
 function renderQuick(){
-  $("quick").innerHTML = QUICK.map(q => '<button type="button" data-q="'+q+'" aria-pressed="'+(state.place && state.place.name===q)+'">'+q+'</button>').join("");
+  const favs = getFavs(), cur = state.place;
+  $("quick").innerHTML =
+    '<button type="button" class="gps" data-gps aria-pressed="'+!!(cur && cur.gps)+'">'+PIN+'Vicino a me</button>'+
+    favs.map((f,i) => '<button type="button" class="fv" data-f="'+i+'" aria-pressed="'+samePlace(f,cur)+'" title="Preferito">'+STAR+esc(f.name)+'</button>').join("")+
+    QUICK.filter(q => !favs.some(f => f.name===q)).map(q => '<button type="button" data-q="'+q+'" aria-pressed="'+!!(cur && !cur.gps && cur.name===q)+'">'+q+'</button>').join("");
+}
+
+function locate(btn){
+  if(!("geolocation" in navigator)){ showErr("<b>Posizione non disponibile</b> su questo dispositivo. Cerca il comune per nome."); return; }
+  btn.classList.add("busy"); btn.lastChild.textContent = "Cerco…";
+  navigator.geolocation.getCurrentPosition(pos => {
+    const lat = pos.coords.latitude, lon = pos.coords.longitude;
+    if(lat < CALABRIA.s || lat > CALABRIA.n || lon < CALABRIA.w || lon > CALABRIA.e){
+      renderQuick(); showErr("<b>Sei fuori dalla Calabria.</b> Meteo Calabria copre solo i comuni calabresi: cercane uno per nome."); return;
+    }
+    load({name:"La tua posizione", lat, lon, elev:null, prov:"", gps:true});
+  }, err => {
+    renderQuick();
+    showErr(err.code === 1 ? "<b>Accesso alla posizione negato.</b> Per usare “Vicino a me” consentilo nelle impostazioni del browser."
+                           : "<b>Non riesco a trovare la tua posizione.</b> Riprova, oppure cerca il comune per nome.");
+  }, {timeout:15000, maximumAge:10*60*1000});
 }
 
 let tmr = null, seq = 0;
@@ -621,17 +713,30 @@ $("results").addEventListener("click", e => {
 });
 document.addEventListener("click", e => { if(!e.target.closest(".search")) $("results").hidden = true; });
 $("quick").addEventListener("click", async e => {
+  if(state.busy) return;
+  const g = e.target.closest("button[data-gps]"); if(g){ locate(g); return; }
+  const f = e.target.closest("button[data-f]"); if(f){ const p = getFavs()[+f.dataset.f]; if(p) load(p); return; }
   const b = e.target.closest("button[data-q]"); if(!b) return;
   try{ const r = await geocode(b.dataset.q); const best = r.find(x=>x.name.toLowerCase()===b.dataset.q.toLowerCase()) || r[0];
     if(best) load(best); else showErr("<b>Comune non trovato.</b> Prova a cercarlo per nome.");
   }catch(err){ showErr("<b>Ricerca non disponibile.</b> Controlla la connessione e riprova."); }
 });
-$("days").addEventListener("click", e => {
-  const b = e.target.closest("button.day"); if(!b) return;
-  state.day = +b.dataset.i;
-  document.querySelectorAll(".day").forEach(x => x.setAttribute("aria-pressed", String(x===b)));
+function selectDay(i){
+  state.day = i;
+  document.querySelectorAll(".day").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.i===i)));
   renderDay();
+}
+$("days").addEventListener("click", e => {
+  const b = e.target.closest("button.day"); if(b) selectDay(+b.dataset.i);
 });
+$("alerts").addEventListener("click", e => {
+  const b = e.target.closest("button[data-i]"); if(!b) return;
+  selectDay(+b.dataset.i);
+  const card = document.querySelector('.day[data-i="'+b.dataset.i+'"]');
+  if(card) card.scrollIntoView({block:"nearest", inline:"nearest"});
+  $("detail").scrollIntoView({behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth", block:"start"});
+});
+$("fav").addEventListener("click", toggleFav);
 $("legend").addEventListener("click", e => {
   const b = e.target.closest("button[data-m]"); if(!b) return;
   const id = b.dataset.m; state.hidden.has(id) ? state.hidden.delete(id) : state.hidden.add(id);
