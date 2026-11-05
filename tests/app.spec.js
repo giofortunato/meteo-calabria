@@ -46,6 +46,31 @@ test("un giorno scelto aggiorna dettaglio e tabella", async ({ page, api }) => {
   await expect(page.locator("#tbl tbody tr").first()).toContainText("non copre questo giorno");
 });
 
+test("il grafico si legge da tastiera", async ({ page, api }) => {
+  await page.goto("/");
+  await ready(page);
+  await page.locator('.day[data-i="1"]').click(); // domani: si parte dalle 12
+  const chart = page.locator("#chart"), readout = page.locator("#readout");
+  await page.locator("#legend button[data-m]").last().focus();
+  await page.keyboard.press("Tab");
+  await expect(chart).toBeFocused();
+  await expect(chart).toHaveAttribute("role", "slider");
+  await page.keyboard.press("ArrowRight");
+  await expect(readout).toContainText("Ore 12:00");
+  await page.keyboard.press("ArrowRight");
+  await expect(readout).toContainText("Ore 13:00");
+  await expect(chart).toHaveAttribute("aria-valuetext", /^Ore 13:00 · /);
+  await page.keyboard.press("End");
+  await expect(readout).toContainText("Ore 23:00");
+  await page.keyboard.press("Home");
+  await expect(readout).toContainText("Ore 00:00");
+  await page.keyboard.press("ArrowLeft"); // già alla prima ora
+  await expect(readout).toContainText("Ore 00:00");
+  await page.keyboard.press("PageUp");
+  await expect(readout).toContainText("Ore 03:00");
+  await expect(page.locator("#cursor")).toHaveAttribute("visibility", "visible");
+});
+
 test.describe("ricerca", () => {
   test("trova i comuni dall'elenco locale, anche senza accenti, e Invio apre il primo", async ({ page, api }) => {
     await page.goto("/");
