@@ -136,6 +136,11 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--sea);outline-of
 /* dettaglio */
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .panel h2{font-size:22px}
+.phead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.share{flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);
+  border-radius:8px;padding:6px 12px;font-weight:600;font-size:14px;min-height:36px}
+.share svg{width:16px;height:16px}
+.share.done{border-color:var(--good);color:var(--good)}
 .panel .sub{margin:-8px 0 0;color:var(--muted);font-size:15px}
 .chart-box{overflow-x:auto}
 .chart-box svg{display:block;width:100%;min-width:560px;height:auto;touch-action:pan-x}
@@ -314,7 +319,10 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   </section>
 
   <section class="panel" id="detail">
-    <h2 id="dtitle">Dettaglio ora per ora</h2>
+    <div class="phead">
+      <h2 id="dtitle">Dettaglio ora per ora</h2>
+      <button class="share" id="share" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.4M8.2 13.2l7.6 4.4"/></g></svg><span>Condividi</span></button>
+    </div>
     <p class="sub" id="dsub"></p>
     <p class="sun" id="dsun"></p>
     <div class="hours-wrap" role="group" aria-label="Ora per ora"><div class="hours" id="hours"></div></div>
@@ -868,7 +876,7 @@ function renderTable(d){
 /* ---------- flusso ---------- */
 function showErr(msg){ const e=$("err"); if(!msg){e.hidden=true;return;} e.innerHTML=msg; e.hidden=false; }
 
-async function load(place){
+async function load(place, wantDate){
   if(state.busy) return; state.busy = true;
   state.place = place; state.day = 0;
   try{ localStorage.setItem(STORE, JSON.stringify(place)); }catch(e){}
@@ -895,6 +903,7 @@ async function load(place){
   }
   // il GPS non dà la quota: la prende dalla risposta del modello
   if(place.elev == null){ const e = raw.find(x => typeof x.elev === "number"); if(e){ place.elev = e.elev; try{ localStorage.setItem(STORE, JSON.stringify(place)); }catch(err){} } }
+  if(wantDate){ const k = D.days.findIndex(d => d.date === wantDate); if(k >= 0) state.day = k; }
   state.data = D; renderAll();
 }
 
@@ -1017,7 +1026,56 @@ document.addEventListener("visibilitychange", () => {
   if(document.visibilityState==="visible" && state.data && Date.now()-state.data.fetched > 30*60*1000) load(state.place);
 });
 
+/* condividi: testo del giorno scelto + link che riapre l'app su quel luogo e quel giorno */
+function shareURL(){
+  const p = state.place, d = state.data.days[state.day], q = new URLSearchParams();
+  const c = findLocal(p.name);
+  if(c && !p.gps && samePlace(fromComune(c), p)) q.set("comune", c[0]);
+  else { q.set("lat", p.lat.toFixed(4)); q.set("lon", p.lon.toFixed(4)); q.set("nome", p.name); }
+  if(state.day > 0) q.set("giorno", d.date);
+  return location.origin + location.pathname + "?" + q.toString();
+}
+function shareText(){
+  const D = state.data, i = state.day, d = D.days[i], sd = D.sea && D.sea.days[i];
+  let t = state.place.name+", "+(i===0 ? "oggi" : i===1 ? "domani" : dayFull(d.date))+": "+LABEL[d.kind].toLowerCase()+", "+deg(d.tmax)+"/"+deg(d.tmin);
+  if(d.prob >= 0.1) t += ", pioggia "+Math.round(d.prob*100)+"% ("+n1(d.psum)+" mm)";
+  if(d.gmax != null && d.gmax >= 40) t += ", raffiche fino a "+Math.round(d.gmax)+" km/h";
+  t += ".";
+  if(sd) t += " Mare "+douglas(sd.whMax).toLowerCase()+", onde fino a "+n1(sd.whMax)+" m.";
+  return t+" Concordanza dei modelli "+AGREE_TXT[d.agree].toLowerCase()+".";
+}
+async function share(){
+  if(!state.data) return;
+  const b = $("share"), label = b.querySelector("span"), text = shareText(), url = shareURL();
+  const done = msg => { label.textContent = msg; b.classList.add("done"); setTimeout(() => { label.textContent = "Condividi"; b.classList.remove("done"); }, 2500); };
+  if(navigator.share){
+    try{ await navigator.share({title:"Meteo Calabria · "+state.place.name, text, url}); return; }
+    catch(e){ if(e.name === "AbortError") return; } // annullata: niente da fare; altri errori: si prova a copiare
+  }
+  try{ await navigator.clipboard.writeText(text+"\n"+url); done("Copiato"); }
+  catch(e){ showErr("<b>Non riesco a condividere</b> da questo browser. Copia il link dalla barra degli indirizzi: "+esc(url)); }
+}
+$("share").addEventListener("click", share);
+
+// link condiviso: ?comune=Nome oppure ?lat=..&lon=..&nome=.., più &giorno=AAAA-MM-GG; poi l'indirizzo torna pulito
+function placeFromURL(){
+  const q = new URLSearchParams(location.search);
+  if(![...q.keys()].length) return null;
+  try{ history.replaceState(null, "", location.pathname); }catch(e){}
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(q.get("giorno") || "") ? q.get("giorno") : null;
+  const c = q.get("comune") && findLocal(q.get("comune"));
+  if(c) return {place:fromComune(c), date};
+  const lat = parseFloat(q.get("lat")), lon = parseFloat(q.get("lon")), nome = (q.get("nome") || "").trim().slice(0, 60);
+  if(Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && nome){
+    const near = nearest(lat, lon);
+    return {place:{name:nome, lat, lon, elev:null, prov:near && near.d <= 25 ? PROVINCE[near.c[1]] : ""}, date};
+  }
+  return null;
+}
+
 (async function init(){
+  const shared = placeFromURL();
+  if(shared){ load(shared.place, shared.date); return; }
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem(STORE)||"null"); }catch(e){}
   if(saved && typeof saved.lat === "number"){ load(saved); return; }
