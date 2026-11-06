@@ -370,15 +370,9 @@ test.describe("Vicino a me", () => {
 
 test.describe("schermo grande", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
-  test("ore in due righe senza scorrere e note a tutta larghezza", async ({ page, api }) => {
+  test("note a tutta larghezza", async ({ page, api }) => {
     await page.goto("/");
     await ready(page);
-    await page.locator('.day[data-i="1"]').click();
-    const wrap = page.locator(".hours-wrap");
-    expect(await wrap.evaluate(e => e.scrollWidth - e.clientWidth)).toBeLessThanOrEqual(0);
-    const top = async j => (await page.locator(`#hours .hour[data-j="${j}"]`).boundingBox()).y;
-    expect(await top(11)).toBe(await top(0));          // 00–11 sulla prima riga
-    expect(await top(12)).toBeGreaterThan(await top(0)); // 12–23 sulla seconda
     const note = await page.locator(".note").boundingBox(), table = await page.locator("#tbl").boundingBox();
     expect(note.width).toBeGreaterThan(table.width - 10); // larga quanto i riquadri sopra
   });

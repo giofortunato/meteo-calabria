@@ -244,11 +244,8 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   .no-sm{display:none}
 }
 @media (min-width:641px){.only-sm{display:none}}
-/* schermo grande: le 24 ore in due righe da 12 senza scorrere, le note in due colonne a tutta larghezza */
+/* schermo grande: le note in due colonne a tutta larghezza */
 @media (min-width:900px){
-  .hours-wrap{overflow:visible;scroll-snap-type:none}
-  .hours{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));width:auto}
-  .hour{width:auto}
   .note{max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 40px;align-items:start}
   .note p:first-child{grid-row:span 2}
 }
