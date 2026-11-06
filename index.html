@@ -244,7 +244,46 @@ td.na{color:var(--muted);font-style:italic;text-align:left}
   .no-sm{display:none}
 }
 @media (min-width:641px){.only-sm{display:none}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+/* schermo grande: le note in due colonne a tutta larghezza */
+@media (min-width:900px){
+  .note{max-width:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 40px;align-items:start}
+  .note p:first-child{grid-row:span 2}
+}
+/* animazioni: brevi e discrete; spente del tutto con "riduci movimento" */
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes drift{from{transform:translateX(-.7px)}to{transform:translateX(.7px)}}
+@keyframes drip{0%{transform:translateY(-1.5px);opacity:0}30%{opacity:1}100%{transform:translateY(2px);opacity:0}}
+@keyframes flash{0%,82%,100%{opacity:1}86%,94%{opacity:.15}}
+@keyframes rock{from{transform:rotate(-6deg)}to{transform:rotate(6deg)}}
+@keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes slideup{from{opacity:0;transform:translate(-50%,16px)}to{opacity:1;transform:translateX(-50%)}}
+.enter{animation:rise .45s cubic-bezier(.2,.7,.3,1) both}
+.alerts:not([hidden]),.sea:not([hidden]),.err:not([hidden]){animation:rise .4s cubic-bezier(.2,.7,.3,1) both}
+.update:not([hidden]){animation:slideup .35s cubic-bezier(.2,.7,.3,1) both}
+/* icona del riquadro adesso */
+#nic g{transform-box:view-box;transform-origin:12px 12px}
+#nic.sun g{animation:spin 30s linear infinite}
+#nic.cloud g,#nic.partly g{animation:drift 3.5s ease-in-out infinite alternate}
+#nic.moon g{animation:rock 6s ease-in-out infinite alternate}
+#nic.rain path:nth-child(2),#nic.showers path:nth-child(2),#nic.snow path:nth-child(2){animation:drip 1.3s ease-in infinite}
+#nic.storm path:nth-child(2){animation:flash 3s linear infinite}
+/* grafico: la linea del consenso si disegna, la fascia appare, le barre crescono */
+#chart.anim .cons-line{stroke-dasharray:1;animation:draw .9s cubic-bezier(.4,0,.2,1) both}
+#chart.anim .band{animation:fade .6s ease both}
+#chart.anim .bar{transform-box:fill-box;transform-origin:bottom;animation:grow .5s cubic-bezier(.2,.7,.3,1) both}
+/* indicatore di caricamento sul pulsante Aggiorna */
+.refresh{display:inline-flex;align-items:center;gap:8px}
+body.loading .refresh::before{content:"";width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sea);animation:spin .8s linear infinite}
+.day{transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,border-color .18s ease}
+.hour,.quick button,.legend button,.share,.refresh{transition:background-color .18s ease,border-color .18s ease,color .18s ease}
+@media (hover:hover){
+  .day:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgb(0 0 0 / .08)}
+  .day[aria-pressed="true"]:hover{box-shadow:inset 0 0 0 1px var(--sea),0 6px 16px rgb(0 0 0 / .08)}
+}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
@@ -397,7 +436,7 @@ const ICONS = {
 };
 const LABEL = {sun:"Sereno", moon:"Sereno", partly:"Poco nuvoloso", cloud:"Nuvoloso", showers:"Possibili rovesci", rain:"Pioggia", storm:"Temporali", snow:"Neve"};
 function setIcon(svg, kind){
-  svg.setAttribute("class","ic "+(kind==="moon"?"":kind));
+  svg.setAttribute("class","ic "+kind);
   svg.innerHTML = '<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+ICONS[kind]+'</g>';
 }
 function iconHTML(kind){
@@ -655,6 +694,7 @@ function renderAll(){
   if(!D) return;
   const h = D.H[D.nowIdx];
   const k = hourKind(h);
+  chartAnim = true; replay(document.querySelector(".now .big")); replay($("nsun"));
   setIcon($("nic"), k);
   $("nt").textContent = h.t!=null ? deg(h.t) : "--°";
   $("ncond").textContent = LABEL[k];
@@ -675,7 +715,7 @@ function renderAll(){
   const wlo = Math.min(...D.days.map(d=>d.tmin)), whi = Math.max(...D.days.map(d=>d.tmax)), wr = Math.max(1, whi-wlo);
   const pct = v => (100*(v-wlo)/wr).toFixed(1)+"%";
   $("days").innerHTML = D.days.map((d,i)=>
-    '<button class="day" type="button" data-i="'+i+'" aria-pressed="'+(i===state.day)+'">'+
+    '<button class="day enter" style="animation-delay:'+(i*45)+'ms" type="button" data-i="'+i+'" aria-pressed="'+(i===state.day)+'">'+
       '<span class="dn">'+dayName(d.date,i)+'</span><span class="dd">'+new Date(d.date+"T12:00:00").getDate()+" "+MON[+d.date.slice(5,7)-1]+'</span>'+
       iconHTML(d.kind)+
       '<span class="tt num"><b>'+deg(d.tmax)+'</b> / '+deg(d.tmin)+'</span>'+
@@ -741,8 +781,11 @@ const D_active = () => state.data.active;
 const PHONE = matchMedia("(max-width:640px)");
 PHONE.addEventListener("change", () => { if(state.data) renderDay(); });
 
+let chartAnim = true; // il grafico si anima con dati nuovi o un giorno nuovo, non quando si nasconde un modello
+function replay(el){ el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); }
 function renderChart(d){
   const svg = $("chart"), H = state.data.H;
+  svg.classList.toggle("anim", chartAnim); chartAnim = false;
   const W=PHONE.matches?380:720, L=40, R=12, T=14, TB=180, RT=204, RB=258, XL=276;
   svg.setAttribute("viewBox","0 0 "+W+" 284");
   const pts = d.ids.map(i=>H[i]);
@@ -767,7 +810,7 @@ function renderChart(d){
   // fascia min-max
   const top = pts.map((h,j)=>h.tmax!=null?[x(j),y(h.tmax)]:null).filter(Boolean);
   const bot = pts.map((h,j)=>h.tmin!=null?[x(j),y(h.tmin)]:null).filter(Boolean).reverse();
-  s += '<polygon points="'+top.concat(bot).map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")+'" fill="var(--sea)" fill-opacity="0.14" stroke="none"/>';
+  s += '<polygon class="band" points="'+top.concat(bot).map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join(" ")+'" fill="var(--sea)" fill-opacity="0.14" stroke="none"/>';
   // linee modelli
   for(const m of D_active()){
     if(state.hidden.has(m.id)) continue;
@@ -777,14 +820,14 @@ function renderChart(d){
   }
   // consenso
   let cp=""; pts.forEach((h,j)=>{ if(h.t!=null) cp += (cp?"L":"M")+x(j).toFixed(1)+" "+y(h.t).toFixed(1); });
-  s += '<path d="'+cp+'" fill="none" stroke="var(--ink)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>';
+  s += '<path class="cons-line" pathLength="1" d="'+cp+'" fill="none" stroke="var(--ink)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>';
   // pioggia
   const pmax = Math.max(2, ...pts.map(h=>h.p));
   const bw = Math.max(4, (W-L-R)/n*0.62);
   s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+RB+'" y2="'+RB+'" stroke="var(--line)"/>';
   if(pts.every(h=>h.p<0.05)) s += '<text x="'+((L+W-R)/2)+'" y="'+(RB-14)+'" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="var(--body)">nessuna pioggia prevista</text>';
   else s += '<text x="'+(L-6)+'" y="'+(RT+8)+'" text-anchor="end" font-size="10" fill="var(--rain)" font-family="var(--mono)">'+n1(pmax)+'</text><text x="'+(L-6)+'" y="'+(RB)+'" text-anchor="end" font-size="10" fill="var(--muted)" font-family="var(--mono)">mm</text>';
-  pts.forEach((h,j)=>{ if(h.p<0.05) return; const hgt = h.p/pmax*(RB-RT); s += '<rect x="'+(x(j)-bw/2).toFixed(1)+'" y="'+(RB-hgt).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hgt.toFixed(1)+'" rx="1.5" fill="var(--rain)" fill-opacity="'+(0.35+0.65*h.pwet).toFixed(2)+'"/>'; });
+  pts.forEach((h,j)=>{ if(h.p<0.05) return; const hgt = h.p/pmax*(RB-RT); s += '<rect x="'+(x(j)-bw/2).toFixed(1)+'" y="'+(RB-hgt).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hgt.toFixed(1)+'" rx="1.5" class="bar" fill="var(--rain)" fill-opacity="'+(0.35+0.65*h.pwet).toFixed(2)+'"/>'; });
   // asse ore
   pts.forEach((h,j)=>{ const hr=+h.time.slice(11,13); if(hr%3) return; s += '<text x="'+x(j)+'" y="'+XL+'" text-anchor="middle" font-size="11" fill="var(--muted)" font-family="var(--mono)">'+String(hr).padStart(2,"0")+'</text>'; });
   // adesso
@@ -835,7 +878,7 @@ function renderHours(d){
     const label = state.day === 0 && k === 0 ? "Ora" : h.time.slice(11,13);
     // la freccia indica dove va il vento: proviene da wd, quindi punta a wd + 180
     const wind = h.ws != null ? '<span class="w num">'+(h.wd != null ? '<svg viewBox="0 0 24 24" aria-hidden="true" style="transform:rotate('+Math.round(h.wd+180)+'deg)">'+ARROW+'</svg>' : "")+Math.round(h.ws)+'</span>' : "";
-    return '<button type="button" class="hour" data-j="'+j+'" aria-pressed="false" aria-label="'+esc(hourText(h))+'">'+
+    return '<button type="button" class="hour enter" style="animation-delay:'+Math.min(k*20, 300)+'ms" data-j="'+j+'" aria-pressed="false" aria-label="'+esc(hourText(h))+'">'+
       '<span class="h num">'+label+'</span>'+iconHTML(hourKind(h))+
       '<span class="t num">'+(h.t != null ? deg(h.t) : "–")+'</span>'+
       '<span class="r num">'+(h.p >= 0.1 ? n1(h.p)+" mm" : h.pwet >= 0.3 ? Math.round(h.pwet*100)+"%" : "")+'</span>'+
@@ -1001,7 +1044,7 @@ $("quick").addEventListener("click", async e => {
   }catch(err){ showErr("<b>Ricerca non disponibile.</b> Controlla la connessione e riprova."); }
 });
 function selectDay(i){
-  state.day = i;
+  state.day = i; chartAnim = true;
   document.querySelectorAll(".day").forEach(x => x.setAttribute("aria-pressed", String(+x.dataset.i===i)));
   renderDay();
 }
