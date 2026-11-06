@@ -368,6 +368,28 @@ test.describe("Vicino a me", () => {
   });
 });
 
+test.describe("animazioni", () => {
+  test("icona e grafico si animano, ma non quando si nasconde un modello", async ({ page, api }) => {
+    await page.goto("/");
+    await ready(page);
+    expect(await page.evaluate(() => document.querySelector("#nic").getAnimations({ subtree: true }).length)).toBeGreaterThan(0);
+    await expect(page.locator("#chart")).toHaveClass(/anim/);
+    await page.locator("#legend button[data-m]").first().click();
+    await expect(page.locator("#chart")).not.toHaveClass(/anim/);
+    await page.locator('.day[data-i="2"]').click();
+    await expect(page.locator("#chart")).toHaveClass(/anim/);
+  });
+
+  test.describe("con riduci movimento", () => {
+    test.use({ reducedMotion: "reduce" });
+    test("nessuna animazione", async ({ page, api }) => {
+      await page.goto("/");
+      await ready(page);
+      expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    });
+  });
+});
+
 test.describe("schermo grande", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
   test("note a tutta larghezza", async ({ page, api }) => {
