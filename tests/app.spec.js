@@ -122,6 +122,60 @@ test.describe("ora per ora", () => {
   });
 });
 
+test.describe("condividi", () => {
+  const giorno = k => new Date(Date.now() + 3600e3 + k * 864e5).toISOString().slice(0, 10); // come le date simulate
+
+  test("condivide testo e link del giorno scelto", async ({ page, api }) => {
+    await page.addInitScript(() => { navigator.share = async data => { window.__shared = data; }; });
+    api.opt.rainDays = [1];
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#quick button", { hasText: "Tropea" }).click();
+    await expect(page.locator("#sea")).toBeVisible();
+    await page.locator('.day[data-i="1"]').click();
+    await page.locator("#share").click();
+    const data = await page.evaluate(() => window.__shared);
+    expect(data.title).toBe("Meteo Calabria · Tropea");
+    expect(data.text).toMatch(/^Tropea, domani: pioggia, \d+°\/\d+°, pioggia 100% \(18 mm\)\. Mare poco mosso, onde fino a 0,4 m\. Concordanza dei modelli alta\.$/);
+    expect(data.url).toBe(`http://localhost:8765/?comune=Tropea&giorno=${giorno(1)}`);
+  });
+
+  test("senza menu di condivisione copia negli appunti", async ({ page, api }) => {
+    await page.addInitScript(() => {
+      delete Navigator.prototype.share;
+      navigator.clipboard.writeText = async t => { window.__copied = t; };
+    });
+    await page.goto("/");
+    await ready(page);
+    await page.locator("#share").click();
+    await expect(page.locator("#share")).toHaveText("Copiato");
+    const copied = await page.evaluate(() => window.__copied);
+    expect(copied).toMatch(/^Santa Domenica Talao, oggi: .+\nhttp:\/\/localhost:8765\/\?comune=Santa\+Domenica\+Talao$/);
+  });
+
+  test("un link condiviso apre luogo e giorno, poi l'indirizzo torna pulito", async ({ page, api }) => {
+    await page.goto(`/?comune=Tropea&giorno=${giorno(2)}`);
+    await ready(page);
+    await expect(page.locator("#pname")).toHaveText("Tropea");
+    await expect(page.locator('.day[data-i="2"]')).toHaveAttribute("aria-pressed", "true");
+    expect(new URL(page.url()).search).toBe("");
+  });
+
+  test("un link con coordinate apre frazioni e posizioni", async ({ page, api }) => {
+    await page.goto("/?lat=38.6200&lon=15.8400&nome=Capo%20Vaticano");
+    await ready(page);
+    await expect(page.locator("#pname")).toHaveText("Capo Vaticano");
+    await expect(page.locator("#pmeta")).toContainText("Provincia di Vibo Valentia");
+    await expect(page.locator("#sea")).toBeVisible(); // vicino a Ricadi, comune costiero
+  });
+
+  test("un link sbagliato apre il comune predefinito", async ({ page, api }) => {
+    await page.goto("/?comune=Atlantide&lat=abc");
+    await ready(page);
+    await expect(page.locator("#pname")).toHaveText("Santa Domenica Talao");
+  });
+});
+
 test.describe("sole e UV", () => {
   const hhmm = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
 
